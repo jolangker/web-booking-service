@@ -1,6 +1,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-11-03',
   devtools: { enabled: false },
+  vite: { server: { allowedHosts: ['host.docker.internal'] } },
   css: ['~/assets/admin.css'],
   nitro: { preset: 'node-server' },
   typescript: { strict: true },

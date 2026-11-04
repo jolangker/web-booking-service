@@ -21,6 +21,14 @@ services:
       WHATSAPP_SWAGGER_ENABLED: "false"
       WHATSAPP_DEFAULT_ENGINE: NOWEB
       WHATSAPP_RESTART_ALL_SESSIONS: "true"
+      WHATSAPP_HOOK_URL: http://host.docker.internal:3000/api/webhooks/waha
+      WHATSAPP_HOOK_EVENTS: message.ack
+      WHATSAPP_HOOK_HMAC_KEY: ${WAHA_WEBHOOK_SECRET:?Set WAHA_WEBHOOK_SECRET}
+      WHATSAPP_HOOK_RETRIES_POLICY: exponential
+      WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: "2"
+      WHATSAPP_HOOK_RETRIES_ATTEMPTS: "8"
+      WAHA_LOG_LEVEL: warn
+    extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["127.0.0.1:3001:3000"]
     volumes: ["waha_sessions:/app/.sessions"]
     healthcheck:

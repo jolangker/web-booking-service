@@ -5,6 +5,8 @@ x-runtime: &runtime
   DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
   HEALTH_TOKEN: ${HEALTH_TOKEN:?Set HEALTH_TOKEN}
   WAHA_API_KEY: ${WAHA_API_KEY:?Set WAHA_API_KEY}
+  OTP_SECRET: ${OTP_SECRET:?Set OTP_SECRET}
+  WAHA_WEBHOOK_SECRET: ${WAHA_WEBHOOK_SECRET:?Set WAHA_WEBHOOK_SECRET}
   WAHA_BASE_URL: https://${GATEWAY_DOMAIN:?Set GATEWAY_DOMAIN}
   DEBUG_RUNTIME: "false"
 services:
@@ -23,7 +25,7 @@ services:
       - caddy_config:/config
     networks:
       default:
-        aliases: ["${GATEWAY_DOMAIN}"]
+        aliases: ["${GATEWAY_DOMAIN}", "${APP_DOMAIN}"]
     depends_on:
       web: { condition: service_healthy }
       waha: { condition: service_healthy }
@@ -80,6 +82,13 @@ services:
       WHATSAPP_SWAGGER_ENABLED: "false"
       WHATSAPP_DEFAULT_ENGINE: NOWEB
       WHATSAPP_RESTART_ALL_SESSIONS: "true"
+      WHATSAPP_HOOK_URL: https://${APP_DOMAIN:?Set APP_DOMAIN}/api/webhooks/waha
+      WHATSAPP_HOOK_EVENTS: message.ack
+      WHATSAPP_HOOK_HMAC_KEY: ${WAHA_WEBHOOK_SECRET:?Set WAHA_WEBHOOK_SECRET}
+      WHATSAPP_HOOK_RETRIES_POLICY: exponential
+      WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: "2"
+      WHATSAPP_HOOK_RETRIES_ATTEMPTS: "8"
+      WAHA_LOG_LEVEL: warn
     volumes: ["waha_sessions:/app/.sessions"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/sessions',{headers:{'X-Api-Key':process.env.WAHA_API_KEY}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

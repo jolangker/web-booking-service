@@ -1,11 +1,12 @@
 import { createServer } from 'node:http'
-import { authorized, createRuntime, readEnvironment } from '@booking/core'
+import { authorized, createRuntime, dispatchOtp, expireOtpPayloads, OTP_QUEUE, readEnvironment } from '@booking/core'
 import { checkDatabase, DEMO_QUEUE } from '@booking/db'
 
 const env = readEnvironment()
 const runtime = createRuntime(env, 'worker')
 let ready = false
 let stopping = false
+let maintenance: ReturnType<typeof setInterval> | undefined
 const log = (event: string, fields = {}) => console.log(JSON.stringify({ event, ...fields }))
 const server = createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json')
@@ -32,6 +33,7 @@ const server = createServer(async (request, response) => {
 async function shutdown(failed = false) {
   if (stopping) return
   stopping = true
+  clearInterval(maintenance)
   ready = false
   log('worker.stopping')
   const deadline = setTimeout(() => process.exit(1), 20000)
@@ -56,6 +58,19 @@ try {
   })
   await checkDatabase(runtime)
   await runtime.startQueue()
+  await expireOtpPayloads(runtime)
+  await runtime.boss.work<{ challengeId: string }>(OTP_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
+    await dispatchOtp(runtime, env, job!.data.challengeId, job!.id)
+  })
+  let cleaning = false
+  maintenance = setInterval(async () => {
+    if (cleaning || stopping) return
+    cleaning = true
+    try { await expireOtpPayloads(runtime) }
+    catch { log('otp.maintenance_failed') }
+    finally { cleaning = false }
+  }, 30000)
+  maintenance.unref()
   if (env.debugRuntime) {
     await runtime.boss.work<{ runId: string, failOnce: boolean }>(DEMO_QUEUE, { pollingIntervalSeconds: 1 }, async ([job]) => {
       const result = await runtime.pool.query<{ attempts: number }>(

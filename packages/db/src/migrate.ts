@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
-import { createDatabase, createQueue, DEMO_QUEUE } from './index.js'
+import { createDatabase, createQueue, DEMO_QUEUE, OTP_QUEUE } from './index.js'
 
 const connectionString = process.env.DATABASE_URL
 if (!connectionString || !/^postgres(ql)?:\/\//.test(connectionString)) {
@@ -18,6 +18,10 @@ try {
   await boss.createQueue(DEMO_QUEUE, {
     retryLimit: 2, retryDelay: 2, retryBackoff: true,
     expireInSeconds: 30, retentionSeconds: 604800,
+  })
+  await boss.createQueue(OTP_QUEUE, {
+    retryLimit: 5, retryDelay: 5, retryBackoff: true,
+    expireInSeconds: 30, retentionSeconds: 600,
   })
   console.log(JSON.stringify({ event: 'migration.completed' }))
 } catch {

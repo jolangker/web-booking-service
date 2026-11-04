@@ -6,8 +6,10 @@ import * as schema from './schema.js'
 export { eq, sql } from 'drizzle-orm'
 export { fromDrizzle } from 'pg-boss'
 export { runtimeJobs, admins, adminSessions, loginThrottles, services, workshop, weeklyHours, calendarExceptions, slots } from './schema.js'
+export { customers, vehicles, customerSessions, otpChallenges, notifications, deliveryAttempts, deliveryEvents, gatewayDispatch } from './schema.js'
 export const QUEUE_SCHEMA = 'queue'
 export const DEMO_QUEUE = 'development-example'
+export const OTP_QUEUE = 'customer-otp'
 
 export function createDatabase(connectionString: string) {
   const pool = new pg.Pool({

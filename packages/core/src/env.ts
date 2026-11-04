@@ -19,13 +19,16 @@ export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   } catch { invalid.add('DATABASE_URL') }
   const healthToken = required('HEALTH_TOKEN')
   const wahaApiKey = required('WAHA_API_KEY')
-  for (const [name, value] of [['HEALTH_TOKEN', healthToken], ['WAHA_API_KEY', wahaApiKey]]) {
+  const otpSecret = required('OTP_SECRET')
+  const wahaWebhookSecret = required('WAHA_WEBHOOK_SECRET')
+  for (const [name, value] of [['HEALTH_TOKEN', healthToken], ['WAHA_API_KEY', wahaApiKey], ['OTP_SECRET', otpSecret], ['WAHA_WEBHOOK_SECRET', wahaWebhookSecret]]) {
     if (value!.length < 32) invalid.add(name!)
   }
+  if (new Set([healthToken, wahaApiKey, otpSecret, wahaWebhookSecret]).size !== 4) invalid.add('SECRETS_MUST_DIFFER')
   const wahaBaseUrl = required('WAHA_BASE_URL')
   try {
     const url = new URL(wahaBaseUrl)
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || (appEnv !== 'development' && url.protocol !== 'https:')) invalid.add('WAHA_BASE_URL')
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || (url.pathname !== '/' && url.pathname !== '') || (url.protocol === 'http:' && (appEnv !== 'development' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)))) invalid.add('WAHA_BASE_URL')
   } catch { invalid.add('WAHA_BASE_URL') }
   const debug = source.DEBUG_RUNTIME ?? 'false'
   if (!['true', 'false'].includes(debug) || (appEnv !== 'development' && debug === 'true')) invalid.add('DEBUG_RUNTIME')
@@ -33,7 +36,7 @@ export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   if (!Number.isInteger(healthPort) || healthPort < 1 || healthPort > 65535) invalid.add('WORKER_HEALTH_PORT')
   if (invalid.size) throw new Error(`Invalid environment: ${[...invalid].join(', ')}`)
   return {
-    appEnv, appOrigin, databaseUrl, healthToken, wahaApiKey, wahaBaseUrl,
+    appEnv, appOrigin, databaseUrl, healthToken, wahaApiKey, wahaBaseUrl, otpSecret, wahaWebhookSecret,
     debugRuntime: appEnv === 'development' && debug === 'true',
     workerHealthHost: source.WORKER_HEALTH_HOST ?? '127.0.0.1',
     workerHealthPort: healthPort,

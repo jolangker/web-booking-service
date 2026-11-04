@@ -7,6 +7,8 @@ export { readEnvironment } from './env.js'
 export type { Environment } from './env.js'
 export * from './admin.js'
 export * from './workshop.js'
+export * from './customer.js'
+export * from './messaging.js'
 
 export function authorized(token: string | undefined, expected: string) {
   if (!token) return false
