@@ -11,10 +11,10 @@ export async function dispatchBooking(database: Database, env: Environment, job:
   const tx = await database.pool.connect()
   const lock = `booking:${job.bookingId}`
   try {
-    // Slice 05 mutations must acquire pg_advisory_xact_lock on the same key before changing a booking.
+    // Mutations/reception acquire pg_advisory_xact_lock on this key; hold it through the gateway send.
     await tx.query('SELECT pg_advisory_lock(hashtext($1))', [lock])
     await tx.query('BEGIN')
-    const { rows: [n] } = await tx.query(`SELECT n.*,b.status AS booking_status,b.version AS current_version,b.scheduled_at AS current_schedule,b.code,
+    const { rows: [n] } = await tx.query(`SELECT n.*,b.status AS booking_status,b.reservation_status,b.version AS current_version,b.scheduled_at AS current_schedule,b.code,
       c.phone,t.ciphertext,t.expires_at,t.revoked_at FROM app.notifications n JOIN app.bookings b ON b.id=n.booking_id
       JOIN app.customers c ON c.id=b.customer_id JOIN app.tracking_tokens t ON t.booking_id=b.id
       WHERE n.id=$1 AND b.id=$2 FOR UPDATE OF b,n`, [job.notificationId, job.bookingId])
@@ -26,7 +26,7 @@ export async function dispatchBooking(database: Database, env: Environment, job:
       await tx.query('COMMIT'); return
     }
     let now = new Date()
-    if (n.booking_status !== 'confirmed' || n.current_version !== job.version || n.booking_version !== job.version
+    if (n.reservation_status !== 'active' || n.booking_status !== 'confirmed' || n.current_version !== job.version || n.booking_version !== job.version
       || n.current_schedule.toISOString() !== job.scheduledAt || n.scheduled_at.toISOString() !== job.scheduledAt || n.current_schedule <= now) {
       await tx.query("UPDATE app.notifications SET status='stale' WHERE id=$1", [n.id])
       await tx.query('COMMIT'); return

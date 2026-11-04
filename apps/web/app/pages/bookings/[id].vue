@@ -8,6 +8,7 @@ const { data, error, refresh } = await useAsyncData(`booking-${route.params.id}`
     <header class="admin-header"><h1>Detail booking</h1><NuxtLink to="/bookings">Booking saya</NuxtLink></header>
     <p v-if="error" class="notice error" role="alert">{{ adminError(error) }} <button @click="refresh()">Coba lagi</button></p>
     <BookingResult v-if="data" :booking="data.booking" />
+    <BookingManager v-if="data" :booking="data.booking" @updated="data = { booking: $event }" @refresh="refresh()" />
     <button v-if="data" class="section-actions" @click="refresh()">Perbarui status notifikasi</button>
   </main>
 </template>

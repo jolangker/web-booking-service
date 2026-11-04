@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { bookingCatalog, bookingDetail, bookingSlots, customerProfile, customerVehicle, listBookings, logoutCustomer, object, otpStatus, requestOtp, reserveBooking, saveCustomer, saveVehicle, verifyOtp } from '@booking/core'
+import { bookingCatalog, bookingDetail, bookingSlots, customerProfile, customerVehicle, listBookings, logoutCustomer, mutateBooking, object, otpStatus, requestOtp, reserveBooking, saveCustomer, saveVehicle, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, cookieOptions } from '../../utils/admin'
 import { customerCookie, customerCookieOptions, customerCsrfCookie, customerScope } from '../../utils/customer'
 import { environment, runtime } from '../../utils/runtime'
@@ -44,6 +44,8 @@ export default defineEventHandler(event => adminOperation(async () => {
   }
   const booking = /^bookings\/([0-9a-f-]+)$/.exec(path)
   if (booking && method === 'GET') return bookingDetail(runtime, environment, session.id, booking[1])
+  const mutation = /^bookings\/([0-9a-f-]+)\/(reschedule|cancel)$/.exec(path)
+  if (mutation && method === 'POST') return mutateBooking(runtime, environment, session.id, mutation[1], mutation[2] as 'reschedule' | 'cancel', await adminBody(event))
   if (path === 'profile' && method === 'GET') return customerProfile(runtime, session.id)
   if (path === 'profile' && method === 'PUT') return saveCustomer(runtime, await adminBody(event), session.id)
   if (path === 'contact/otp' && method === 'POST') return requestOtp(runtime, environment, await adminBody(event), ip, { binding: session.binding, customerId: session.id })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-interface Tracking { status: string, scheduledAt: string, history: { status: string, occurredAt: string }[] }
+interface Tracking { status: string, reservationStatus: string, scheduledAt: string, history: { status: string, reservationStatus: string, action: string, scheduledAt: string, occurredAt: string }[] }
 useHead({ title: 'Tracking booking', meta: [{ name: 'robots', content: 'noindex,nofollow,noarchive' }, { name: 'referrer', content: 'no-referrer' }] })
 const data = ref<Tracking>(), error = ref(''), busy = ref(false), token = ref('')
 let timer: ReturnType<typeof setInterval> | undefined
@@ -28,8 +28,8 @@ onBeforeUnmount(() => { clearInterval(timer); document.removeEventListener('visi
     <p v-if="error" class="notice error" role="alert">{{ error }}</p>
     <p v-if="busy && !data" role="status">Memuat status…</p>
     <section v-if="data" class="panel" aria-live="polite">
-      <h2>{{ bookingStatus(data.status) }}</h2><p>Jadwal kedatangan: {{ bookingTime(data.scheduledAt) }}</p>
-      <ol><li v-for="(h, i) in data.history" :key="i"><strong>{{ bookingStatus(h.status) }}</strong><p>{{ bookingTime(h.occurredAt) }}</p></li></ol>
+      <h2>{{ bookingStatus(data.status, data.reservationStatus) }}</h2><p>{{ data.reservationStatus === 'cancelled' ? 'Jadwal yang dibatalkan' : 'Jadwal kedatangan' }}: {{ bookingTime(data.scheduledAt) }}</p>
+      <ol><li v-for="(h, i) in data.history" :key="i"><strong>{{ h.action === 'rescheduled' ? 'Jadwal diubah' : bookingStatus(h.status, h.reservationStatus) }}</strong><p>{{ bookingTime(h.occurredAt) }}</p><p v-if="h.action === 'rescheduled'">Jadwal: {{ bookingTime(h.scheduledAt) }}</p></li></ol>
     </section>
     <button :disabled="busy" class="section-actions" @click="load">Perbarui sekarang</button>
   </main>

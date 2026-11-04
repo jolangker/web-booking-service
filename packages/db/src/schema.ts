@@ -143,6 +143,8 @@ export const bookings = appSchema.table('bookings', {
   estimatedTotal: integer('estimated_total').notNull(),
   estimatedMinutes: integer('estimated_minutes').notNull(),
   status: text('status').notNull().default('confirmed'),
+  reservationStatus: text('reservation_status').notNull().default('active'),
+  checkedInAt: timestamp('checked_in_at', { withTimezone: true }),
   version: integer('version').notNull().default(1),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
   reminderAt: timestamp('reminder_at', { withTimezone: true }),
@@ -151,10 +153,10 @@ export const bookings = appSchema.table('bookings', {
   index('booking_customer_created').on(t.customerId, t.createdAt),
   unique('booking_id_owner').on(t.id, t.customerId),
   index('booking_slot').on(t.slotId),
-  // Cancelled bookings release this identity in Slice 05; every other lifecycle state retains it.
-  uniqueIndex('booking_vehicle_slot_active').on(t.vehicleId, t.scheduledAt).where(sql`${t.status} <> 'cancelled'`),
+  uniqueIndex('booking_vehicle_slot_active').on(t.vehicleId, t.scheduledAt).where(sql`${t.reservationStatus} = 'active'`),
   check('booking_values', sql`${t.code} ~ '^BK-[0-9]{8}-[0-9]{3}$' AND length(trim(${t.complaint})) BETWEEN 1 AND 2000 AND ${t.estimatedTotal} >= 0 AND ${t.estimatedMinutes} > 0 AND ${t.version} > 0`),
-  check('booking_status', sql`${t.status} IN ('confirmed','received','in_progress','completed','collected','cancelled')`),
+  check('booking_status', sql`${t.status} IN ('confirmed','received','in_progress','completed','collected')`),
+  check('booking_reservation_status', sql`${t.reservationStatus} IN ('active','cancelled') AND (${t.reservationStatus} <> 'cancelled' OR (${t.status} = 'confirmed' AND ${t.checkedInAt} IS NULL))`),
 ])
 
 export const bookingServices = appSchema.table('booking_services', {
@@ -170,8 +172,15 @@ export const bookingHistory = appSchema.table('booking_history', {
   bookingId: uuid('booking_id').notNull().references(() => bookings.id),
   version: integer('version').notNull(),
   status: text('status').notNull(),
+  reservationStatus: text('reservation_status').notNull().default('active'),
+  action: text('action').notNull().default('created'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
+  previousScheduledAt: timestamp('previous_scheduled_at', { withTimezone: true }),
+  idempotencyKey: uuid('idempotency_key'),
+  requestHash: text('request_hash'),
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
-}, t => [unique('booking_history_version').on(t.bookingId, t.version)])
+}, t => [unique('booking_history_version').on(t.bookingId, t.version), unique('booking_mutation_retry').on(t.bookingId, t.idempotencyKey),
+  check('booking_history_reservation', sql`${t.reservationStatus} IN ('active','cancelled')`)])
 
 export const trackingTokens = appSchema.table('tracking_tokens', {
   bookingId: uuid('booking_id').primaryKey().references(() => bookings.id),

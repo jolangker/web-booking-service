@@ -112,7 +112,7 @@ export async function planCalendar(tx: PoolClient, calendar: Calendar, from = to
     const reason = !target || target.endMinute !== s.endMinute ? 'Slot berisi reservasi akan ditutup/diubah.' : quota < s.reserved ? 'Kuota di bawah reservasi aktif.' : null
     return reason ? [{ slotId: s.id, date: s.date, startMinute: s.startMinute, reserved: s.reserved, reason }] : []
   })
-  const bookings = conflicts.length ? (await tx.query("SELECT slot_id,code,status FROM app.bookings WHERE slot_id=ANY($1::uuid[]) AND status<>'cancelled' ORDER BY code", [conflicts.map(c => c.slotId)])).rows : []
+  const bookings = conflicts.length ? (await tx.query("SELECT slot_id,code,status FROM app.bookings WHERE slot_id=ANY($1::uuid[]) AND reservation_status='active' ORDER BY code", [conflicts.map(c => c.slotId)])).rows : []
   return { from, to: end as string, proposed, existing, conflicts: conflicts.map(c => ({ ...c, bookings: bookings.filter(b => b.slot_id === c.slotId).map(b => ({ code: b.code, status: b.status })) })) }
 }
 export async function persistSlots(tx: PoolClient, plan: Awaited<ReturnType<typeof planCalendar>>) {
@@ -170,7 +170,7 @@ export async function changeSlotQuota(database: Database, id: string, value: unk
     const standard = generateSlots(calendar, slot.date).find(s => s.startMinute === slot.startMinute)?.quota
     const actual = quota ?? standard
     if (actual === undefined || actual < slot.reserved) {
-      const bookings = (await tx.query("SELECT code,status FROM app.bookings WHERE slot_id=$1 AND status<>'cancelled' ORDER BY code", [id])).rows
+      const bookings = (await tx.query("SELECT code,status FROM app.bookings WHERE slot_id=$1 AND reservation_status='active' ORDER BY code", [id])).rows
       throw new DomainError(409, 'Kuota di bawah reservasi aktif.', { conflicts: [{ slotId: id, reserved: slot.reserved, bookings }] })
     }
     await tx.query('UPDATE app.slots SET quota=$2,quota_override=$3 WHERE id=$1', [id, actual, quota])
