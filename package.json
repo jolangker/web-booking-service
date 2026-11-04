@@ -1,0 +1,27 @@
+{
+  "name": "web-booking-service",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": { "node": "24.16.0", "pnpm": "9.15.9" },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env scripts/run.mjs dev",
+    "dev:web": "node --env-file-if-exists=.env scripts/run.mjs web",
+    "dev:worker": "node --env-file-if-exists=.env scripts/run.mjs worker",
+    "db:migrate": "node --env-file-if-exists=.env scripts/run.mjs migrate",
+    "db:generate": "node --env-file-if-exists=.env scripts/run.mjs generate",
+    "infra:up": "docker compose --env-file .env -f infra/compose.dev.yml up -d --wait",
+    "infra:stop": "docker compose --env-file .env -f infra/compose.dev.yml stop",
+    "waha:pair": "node --env-file-if-exists=.env scripts/waha-pair.mjs",
+    "build:packages": "pnpm --filter @booking/db --filter @booking/core build",
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "typecheck": "pnpm build:packages && pnpm -r typecheck",
+    "verify:runtime": "node --env-file-if-exists=.env scripts/verify-runtime.mjs"
+  },
+  "devDependencies": {
+    "@nuxt/eslint-config": "1.17.0",
+    "@types/node": "24.19.2",
+    "eslint": "10.14.0",
+    "typescript": "5.9.3"
+  }
+}

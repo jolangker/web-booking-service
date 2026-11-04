@@ -1,0 +1,21 @@
+{$APP_DOMAIN} {
+  tls {$CADDY_TLS}
+  encode zstd gzip
+  @internal path /health/ready /dev /dev/* /api/dev/*
+  respond @internal 404
+  reverse_proxy web:3000
+}
+
+{$GATEWAY_DOMAIN} {
+  tls {$CADDY_TLS}
+  @gateway {
+    path /api/*
+    header X-Api-Key {$WAHA_API_KEY}
+  }
+  handle @gateway {
+    reverse_proxy waha:3000
+  }
+  handle {
+    respond 401
+  }
+}
