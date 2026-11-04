@@ -6,7 +6,7 @@ import { runtime } from '../utils/runtime'
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
   const api = path === '/api/customer' || path.startsWith('/api/customer/')
-  const page = path === '/account' || path.startsWith('/account/')
+  const page = path === '/account' || path.startsWith('/account/') || path === '/bookings' || path.startsWith('/bookings/')
   if (!api && !page && path !== '/login') return
   setHeader(event, 'Cache-Control', 'no-store')
   setHeader(event, 'Referrer-Policy', 'same-origin')

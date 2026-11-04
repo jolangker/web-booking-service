@@ -8,6 +8,7 @@ const max = maxDate.toISOString().slice(0, 10)
 const slots = ref<Slot[]>([]), loading = ref(true), busy = ref(''), error = ref(''), message = ref('')
 const quotas = ref<Record<string, number>>({})
 const version = ref(0)
+const conflicts = ref<{ code: string, status: string }[]>([])
 async function load() {
   loading.value = true; error.value = ''; message.value = ''
   try {
@@ -19,11 +20,14 @@ async function load() {
 }
 onMounted(load)
 async function save(s: Slot, reset = false) {
-  busy.value = s.id; error.value = ''; message.value = ''
+  busy.value = s.id; error.value = ''; message.value = ''; conflicts.value = []
   try {
     await request(`/api/admin/slots/${s.id}/quota`, 'PUT', { quota: reset ? null : quotas.value[s.id], version: version.value })
     await load(); message.value = reset ? 'Kuota kembali mengikuti kalender.' : 'Kuota slot tersimpan.'
-  } catch (e) { error.value = adminError(e) }
+  } catch (e) {
+    error.value = adminError(e)
+    conflicts.value = (e as { data?: { data?: { conflicts?: { bookings: { code: string, status: string }[] }[] } } }).data?.data?.conflicts?.flatMap(c => c.bookings) ?? []
+  }
   finally { busy.value = '' }
 }
 const time = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -35,6 +39,7 @@ const time = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${St
     <p class="muted">Hari ini sampai H+14, dalam WIB. Satu booking memakai satu kuota kedatangan. Kuota 0 menutup penerimaan pada slot tersebut.</p>
     <form class="form-row panel" @submit.prevent="load"><label>Tanggal<input v-model="date" type="date" required :min="minDate" :max="max" :disabled="loading || !!busy" @change="load"></label><button :disabled="loading || !!busy">Tampilkan slot</button></form>
     <p v-if="error" role="alert" class="notice error">{{ error }} <button @click="load">Coba lagi</button></p>
+    <ul v-if="conflicts.length"><li v-for="b in conflicts" :key="b.code">Booking aktif: {{ b.code }}</li></ul>
     <p v-if="message" role="status" class="notice success">{{ message }}</p>
     <p v-if="loading" role="status">Memuat slot…</p>
     <p v-else-if="!error && !slots.length" class="panel">Tidak ada slot. Periksa jam buka, istirahat, atau hari libur pada kalender.</p>

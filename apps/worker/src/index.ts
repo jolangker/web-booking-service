@@ -1,5 +1,6 @@
 import { createServer } from 'node:http'
-import { authorized, createRuntime, dispatchOtp, expireOtpPayloads, OTP_QUEUE, readEnvironment } from '@booking/core'
+import { authorized, BOOKING_QUEUE, createRuntime, dispatchBooking, dispatchOtp, expireOtpPayloads, OTP_QUEUE, readEnvironment } from '@booking/core'
+import type { BookingMessage } from '@booking/core'
 import { checkDatabase, DEMO_QUEUE } from '@booking/db'
 
 const env = readEnvironment()
@@ -61,6 +62,9 @@ try {
   await expireOtpPayloads(runtime)
   await runtime.boss.work<{ challengeId: string }>(OTP_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
     await dispatchOtp(runtime, env, job!.data.challengeId, job!.id)
+  })
+  await runtime.boss.work<BookingMessage>(BOOKING_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
+    await dispatchBooking(runtime, env, job!.data, job!.id)
   })
   let cleaning = false
   maintenance = setInterval(async () => {

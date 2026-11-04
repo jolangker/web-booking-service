@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { customerProfile, customerVehicle, logoutCustomer, object, otpStatus, requestOtp, saveCustomer, saveVehicle, verifyOtp } from '@booking/core'
+import { bookingCatalog, bookingDetail, bookingSlots, customerProfile, customerVehicle, listBookings, logoutCustomer, object, otpStatus, requestOtp, reserveBooking, saveCustomer, saveVehicle, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, cookieOptions } from '../../utils/admin'
 import { customerCookie, customerCookieOptions, customerCsrfCookie, customerScope } from '../../utils/customer'
 import { environment, runtime } from '../../utils/runtime'
@@ -34,6 +34,16 @@ export default defineEventHandler(event => adminOperation(async () => {
   const otp = /^otp\/([0-9a-f-]+)$/.exec(path)
   if (otp && method === 'GET') return otpStatus(runtime, otp[1], customerScope(event))
   if (!session) throw createError({ statusCode: 401, statusMessage: 'Silakan masuk.' })
+  if (path === 'catalog' && method === 'GET') return bookingCatalog(runtime)
+  if (path === 'slots' && method === 'GET') return bookingSlots(runtime, getQuery(event).date)
+  if (path === 'bookings' && method === 'GET') return listBookings(runtime, session.id)
+  if (path === 'bookings' && method === 'POST') {
+    const result = await reserveBooking(runtime, environment, session.id, await adminBody(event))
+    setResponseStatus(event, result.replayed ? 200 : 201)
+    return result
+  }
+  const booking = /^bookings\/([0-9a-f-]+)$/.exec(path)
+  if (booking && method === 'GET') return bookingDetail(runtime, environment, session.id, booking[1])
   if (path === 'profile' && method === 'GET') return customerProfile(runtime, session.id)
   if (path === 'profile' && method === 'PUT') return saveCustomer(runtime, await adminBody(event), session.id)
   if (path === 'contact/otp' && method === 'POST') return requestOtp(runtime, environment, await adminBody(event), ip, { binding: session.binding, customerId: session.id })

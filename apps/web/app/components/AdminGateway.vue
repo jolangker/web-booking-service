@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const gateway = ref<{ status: string, checkedAt: string }>(), error = ref(''), busy = ref(false)
-const notifications = ref<{ id: string, queueJobId: string, status: string, recipient: string, createdAt: string, attempts: { id: string, outcome: string, httpStatus: number | null }[] }[]>([])
+const notifications = ref<{ id: string, queueJobId: string, status: string, recipient: string, purpose: string, bookingCode: string | null, createdAt: string, attempts: { id: string, outcome: string, httpStatus: number | null }[] }[]>([])
 async function load() {
   busy.value = true; error.value = ''
   const results = await Promise.allSettled([
@@ -22,10 +22,10 @@ onMounted(load)
     <p v-if="error" role="alert" class="notice error">{{ error }}</p>
     <p v-if="gateway" role="status">Sesi default: <strong>{{ gateway.status }}</strong> · Diperiksa {{ new Date(gateway.checkedAt).toLocaleString('id-ID') }}</p>
     <p class="muted">WORKING berarti terhubung. Pairing/reconnect dilakukan operator melalui runbook. Status accepted hanya berarti API gateway menerima request; delivered/read berasal dari webhook.</p>
-    <h3>50 pengiriman OTP terakhir</h3>
+    <h3>50 notifikasi terakhir</h3>
     <p v-if="!notifications.length && !busy">Belum ada pengiriman.</p>
     <div class="table-scroll"><table v-if="notifications.length"><thead><tr><th>Waktu / korelasi</th><th>Penerima</th><th>Status</th><th>Attempt</th></tr></thead><tbody>
-      <tr v-for="item in notifications" :key="item.id"><td>{{ new Date(item.createdAt).toLocaleString('id-ID') }}<details><summary>ID pengiriman</summary><p>{{ item.id }}</p><p>Job: {{ item.queueJobId }}</p></details></td><td>{{ item.recipient }}</td><td>{{ item.status }}</td><td><ul><li v-for="(attempt, i) in item.attempts" :key="attempt.id">{{ i + 1 }}: {{ attempt.outcome }}{{ attempt.httpStatus ? ` (HTTP ${attempt.httpStatus})` : '' }}</li></ul><span v-if="!item.attempts.length">Menunggu worker</span></td></tr>
+      <tr v-for="item in notifications" :key="item.id"><td>{{ new Date(item.createdAt).toLocaleString('id-ID') }}<p>{{ item.purpose }}<span v-if="item.bookingCode"> · {{ item.bookingCode }}</span></p><details><summary>ID pengiriman</summary><p>{{ item.id }}</p><p>Job: {{ item.queueJobId }}</p></details></td><td>{{ item.recipient }}</td><td>{{ item.status }}</td><td><ul><li v-for="(attempt, i) in item.attempts" :key="attempt.id">{{ i + 1 }}: {{ attempt.outcome }}{{ attempt.httpStatus ? ` (HTTP ${attempt.httpStatus})` : '' }}</li></ul><span v-if="!item.attempts.length">Belum ada attempt</span></td></tr>
     </tbody></table></div>
   </section>
 </template>

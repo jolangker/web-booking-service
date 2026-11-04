@@ -22,6 +22,7 @@ async function logout() {
   <main class="admin customer-account">
     <header class="admin-header"><div><p class="eyebrow">BOOKING BENGKEL · PELANGGAN</p><h1>Akun & kendaraan</h1></div><button v-if="csrf" :disabled="busy" @click="logout">Keluar</button></header>
     <p v-if="error" role="alert" class="notice error">{{ error }}</p>
+    <p><NuxtLink to="/bookings">Booking saya</NuxtLink> · <NuxtLink to="/bookings/new">Buat booking</NuxtLink></p>
     <button v-if="error && !csrf" @click="prepare">Coba lagi</button>
     <CustomerEditor v-if="csrf" base="/api/customer" :csrf="csrf" />
   </main>
