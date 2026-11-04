@@ -1,0 +1,49 @@
+.admin { box-sizing: border-box; }
+.admin-dashboard { max-width: 1240px; margin: 2rem auto; }
+.admin-login { max-width: 460px; margin: 8vh auto; background: white; border: 1px solid #d8e1e5; border-radius: 14px; padding: 2rem; }
+.admin h1 { font-size: clamp(1.6rem, 3vw, 2.1rem); margin: .35rem 0; letter-spacing: -.025em; }
+.admin h2 { margin: 1.8rem 0 .5rem; }
+.admin h3 { margin: 0 0 1rem; font-size: 1.05rem; }
+.admin p { line-height: 1.6; }
+.admin .eyebrow { color: #426573; font-size: .75rem; font-weight: 700; letter-spacing: .12em; margin: 0; }
+.admin .muted, .admin small { color: #526772; }
+.admin .admin-header, .admin .actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.admin .actions { justify-content: flex-start; }
+.admin .admin-tabs { display: flex; flex-wrap: wrap; gap: .5rem; border-bottom: 1px solid #d3dfe4; padding: 1rem 0; }
+.admin button { border: 1px solid #b7c9d1; border-radius: 7px; background: white; color: #213e4a; min-height: 44px; font-weight: 600; }
+.admin button.primary, .admin button[aria-current] { background: #145d66; border-color: #145d66; color: white; }
+.admin button:disabled { opacity: .55; cursor: wait; }
+.admin :focus-visible { outline: 3px solid #d68e22; outline-offset: 3px; }
+.admin label { display: grid; gap: .4rem; font-size: .9rem; font-weight: 600; margin-bottom: 1rem; }
+.admin input { border: 1px solid #b7c9d1; border-radius: 6px; width: 100%; min-height: 44px; background: white; color: #172b35; }
+.admin .check { display: flex; align-items: center; gap: .65rem; }
+.admin .check input { width: 20px; min-height: 20px; }
+.admin .panel { padding: 1.25rem; background: white; border: 1px solid #d8e1e5; border-radius: 10px; min-width: 0; }
+.admin .admin-columns { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); gap: 1.25rem; align-items: start; }
+.admin .notice { padding: 1rem; border-radius: 7px; }
+.admin .error { background: #fff0ee; border: 1px solid #e5b2ab; color: #902f26; }
+.admin .success { background: #e7f3ed; border: 1px solid #a6cbb9; color: #235b40; }
+.admin .table-scroll { overflow-x: auto; }
+.admin table { border-collapse: collapse; width: 100%; text-align: left; font-size: .9rem; }
+.admin th, .admin td { padding: .8rem .5rem; border-bottom: 1px solid #e1e8eb; vertical-align: middle; }
+.admin th { color: #526772; }
+.admin .badge { display: inline-block; background: #e5f3ed; color: #255e45; padding: .3rem .5rem; border-radius: 5px; font-size: .78rem; white-space: nowrap; }
+.admin .badge.inactive { background: #edf0f2; color: #56636b; }
+.admin .form-row { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
+.admin .form-row label { flex: 1 1 150px; margin: 0; }
+.admin fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.admin legend { font-weight: 700; margin: 1rem 0; }
+.admin .week-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.admin .range-row { display: flex; align-items: center; gap: .4rem; margin-bottom: .6rem; flex-wrap: wrap; }
+.admin .range-row label { margin: 0; flex: 1; min-width: 115px; }
+.admin .range-row input { padding: .5rem; }
+.admin .section-actions { margin-top: 1.25rem; }
+.admin .exception-list { list-style: none; padding: 0; }
+.admin .exception-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-bottom: 1px solid #e1e8eb; }
+.admin .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 1rem; }
+.admin .slot-card { display: flex; flex-direction: column; gap: .7rem; padding: 1rem; border: 1px solid #d8e1e5; border-radius: 8px; }
+.admin .slot-card p, .admin .slot-card label, .admin .slot-card h3 { margin: 0; }
+.admin .slot-card.full { background: #f0f2f4; }
+.admin .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 950px) { .admin .admin-columns { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .admin-dashboard { margin: 0 auto; padding: 1rem; } .admin .week-grid { grid-template-columns: 1fr; } .admin-login { margin: 2rem 1rem; } }

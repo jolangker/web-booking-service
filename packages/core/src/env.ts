@@ -7,6 +7,11 @@ export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   }
   const appEnv = required('APP_ENV')
   if (!['development', 'staging', 'production'].includes(appEnv)) invalid.add('APP_ENV')
+  const appOrigin = source.APP_ORIGIN ?? (appEnv === 'development' ? 'http://127.0.0.1:3000' : '')
+  try {
+    const url = new URL(appOrigin)
+    if (url.origin !== appOrigin || url.username || url.password || (appEnv !== 'development' && url.protocol !== 'https:') || !['http:', 'https:'].includes(url.protocol)) invalid.add('APP_ORIGIN')
+  } catch { invalid.add('APP_ORIGIN') }
   const databaseUrl = required('DATABASE_URL')
   try {
     const url = new URL(databaseUrl)
@@ -28,7 +33,7 @@ export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   if (!Number.isInteger(healthPort) || healthPort < 1 || healthPort > 65535) invalid.add('WORKER_HEALTH_PORT')
   if (invalid.size) throw new Error(`Invalid environment: ${[...invalid].join(', ')}`)
   return {
-    appEnv, databaseUrl, healthToken, wahaApiKey, wahaBaseUrl,
+    appEnv, appOrigin, databaseUrl, healthToken, wahaApiKey, wahaBaseUrl,
     debugRuntime: appEnv === 'development' && debug === 'true',
     workerHealthHost: source.WORKER_HEALTH_HOST ?? '127.0.0.1',
     workerHealthPort: healthPort,

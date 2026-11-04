@@ -8,6 +8,20 @@
       "when": 1793719325275,
       "tag": "0000_complete_pet_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793791223490,
+      "tag": "0001_special_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793792254605,
+      "tag": "0002_loud_whizzer",
+      "breakpoints": true
     }
   ]
 }

@@ -2,8 +2,15 @@
   "name": "web-booking-service",
   "private": true,
   "packageManager": "pnpm@9.15.9",
-  "engines": { "node": "24.16.0", "pnpm": "9.15.9" },
+  "engines": {
+    "node": "24.16.0",
+    "pnpm": "9.15.9"
+  },
   "scripts": {
+    "admin:bootstrap": "node --env-file-if-exists=.env scripts/run.mjs admin:bootstrap",
+    "admin:reset": "node --env-file-if-exists=.env scripts/run.mjs admin:reset",
+    "test": "pnpm build:packages && node --test tests/*.test.mjs",
+    "verify:admin": "node --env-file-if-exists=.env scripts/verify-admin.mjs",
     "dev": "node --env-file-if-exists=.env scripts/run.mjs dev",
     "dev:web": "node --env-file-if-exists=.env scripts/run.mjs web",
     "dev:worker": "node --env-file-if-exists=.env scripts/run.mjs worker",
