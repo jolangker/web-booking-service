@@ -15,8 +15,10 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     await tx.query('SELECT pg_advisory_lock(hashtext($1))', [lock])
     await tx.query('BEGIN')
     const { rows: [n] } = await tx.query(`SELECT n.*,b.status AS booking_status,b.reservation_status,b.version AS current_version,b.scheduled_at AS current_schedule,b.code,
-      c.phone,t.ciphertext,t.expires_at,t.revoked_at FROM app.notifications n JOIN app.bookings b ON b.id=n.booking_id
+      c.phone,t.ciphertext,t.expires_at,t.revoked_at,h.status AS event_status,h.action AS event_action,h.occurred_at AS event_time,h.scheduled_at AS event_schedule
+      FROM app.notifications n JOIN app.bookings b ON b.id=n.booking_id
       JOIN app.customers c ON c.id=b.customer_id JOIN app.tracking_tokens t ON t.booking_id=b.id
+      LEFT JOIN app.booking_history h ON h.booking_id=b.id AND h.version=n.booking_version
       WHERE n.id=$1 AND b.id=$2 FOR UPDATE OF b,n`, [job.notificationId, job.bookingId])
     if (!n || n.queue_job_id !== queueJobId || !['queued', 'retrying', 'sending'].includes(n.status)) { await tx.query('COMMIT'); return }
     const { rows: attempts } = await tx.query('SELECT outcome FROM app.delivery_attempts WHERE notification_id=$1', [n.id])
@@ -26,8 +28,10 @@ export async function dispatchBooking(database: Database, env: Environment, job:
       await tx.query('COMMIT'); return
     }
     let now = new Date()
-    if (n.reservation_status !== 'active' || n.booking_status !== 'confirmed' || n.current_version !== job.version || n.booking_version !== job.version
-      || n.current_schedule.toISOString() !== job.scheduledAt || n.scheduled_at.toISOString() !== job.scheduledAt || n.current_schedule <= now) {
+    const received = n.kind === 'received'
+    if (n.reservation_status !== 'active' || n.booking_status !== (received ? 'received' : 'confirmed') || n.current_version !== job.version || n.booking_version !== job.version
+      || (received && (n.event_status !== 'received' || n.event_action !== 'received' || n.event_schedule?.toISOString() !== job.scheduledAt))
+      || n.current_schedule.toISOString() !== job.scheduledAt || n.scheduled_at.toISOString() !== job.scheduledAt || (!received && n.current_schedule <= now)) {
       await tx.query("UPDATE app.notifications SET status='stale' WHERE id=$1", [n.id])
       await tx.query('COMMIT'); return
     }
@@ -38,7 +42,7 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     // Gateway preflight has no send side effect; a stopped gateway can be retried safely.
     const gateway = await gatewayStatus(env)
     now = new Date()
-    if (n.current_schedule <= now) {
+    if (!received && n.current_schedule <= now) {
       await tx.query("UPDATE app.notifications SET status='stale' WHERE id=$1", [n.id])
       await tx.query('COMMIT'); return
     }
@@ -60,7 +64,7 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     const { rows: [gate] } = await tx.query('SELECT next_at<=clock_timestamp() AS ready FROM app.gateway_dispatch WHERE id=1 FOR UPDATE')
     if (!gate.ready) throw new Error('Booking dispatch rate limited')
     now = new Date()
-    if (n.current_schedule <= now) {
+    if (!received && n.current_schedule <= now) {
       await tx.query("UPDATE app.notifications SET status='stale' WHERE id=$1", [n.id])
       await tx.query('COMMIT'); return
     }
@@ -70,10 +74,13 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     await tx.query('COMMIT')
     const schedule = n.current_schedule.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' })
     const link = !n.revoked_at && n.expires_at > now ? ` Tracking: ${env.appOrigin}/tracking#${openTrackingToken(env, job.bookingId, n.ciphertext)}` : ''
+    const message = received
+      ? `Kendaraan Diterima ${n.code}. Diterima bengkel: ${n.event_time.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' })} WIB.${link}`
+      : `${n.kind === 'reminder' ? 'Pengingat booking aktif' : 'Booking Terkonfirmasi'} ${n.code}. Jadwal kedatangan: ${schedule} WIB. Tunjukkan kode atau QR di bengkel.${link}`
     let outcome = 'unknown', status = 'unknown', httpStatus: number | null = null, messageId: string | null = null
     try {
       const response = await gatewayFetch(env, '/api/sendText', { session: 'default', chatId: `${n.phone.slice(1)}@c.us`,
-        text: `${n.kind === 'reminder' ? 'Pengingat booking aktif' : 'Booking Terkonfirmasi'} ${n.code}. Jadwal kedatangan: ${schedule} WIB. Tunjukkan kode atau QR di bengkel.${link}` })
+        text: message })
       httpStatus = response.status
       if (response.ok) {
         messageId = gatewayMessageId(await response.json())

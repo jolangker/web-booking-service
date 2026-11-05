@@ -67,5 +67,10 @@
 .admin .vehicle-list p { margin: .25rem 0; }
 .admin .customer-list button { width: 100%; text-align: left; margin-bottom: .5rem; }
 .admin details p { max-width: 18rem; overflow-wrap: anywhere; }
+.reception-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; margin: 1rem 0; }
+.reception-summary p { margin: 0; padding: 1rem; border: 1px solid #d8e1e5; border-radius: 8px; background: white; }
+.reception-summary strong { display: block; font-size: 1.7rem; color: #145d66; }
+.reception-walk-in { max-width: 760px; }
+.reception .customer-list button[aria-current] small { color: #e0f1f2; }
 @media (max-width: 950px) { .admin .admin-columns { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .admin-dashboard { margin: 0 auto; padding: 1rem; } .admin .week-grid { grid-template-columns: 1fr; } .admin-login { margin: 2rem 1rem; } }

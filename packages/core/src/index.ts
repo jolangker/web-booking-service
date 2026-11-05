@@ -11,6 +11,7 @@ export * from './customer.js'
 export * from './messaging.js'
 export * from './booking.js'
 export * from './booking-messaging.js'
+export * from './reception.js'
 
 export function authorized(token: string | undefined, expected: string) {
   if (!token) return false

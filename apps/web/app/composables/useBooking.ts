@@ -8,7 +8,7 @@ export interface CustomerBooking {
   trackingUrl: string | null, qrPayload: string, qrDataUrl: string,
 }
 export const bookingStatus = (status: string, reservationStatus = 'active') => reservationStatus === 'cancelled' ? 'Reservasi Dibatalkan' : ({ confirmed: 'Booking Terkonfirmasi', received: 'Kendaraan Diterima', in_progress: 'Sedang Dikerjakan', completed: 'Selesai Dikerjakan', collected: 'Siap Diambil / Transaksi Selesai' })[status] ?? status
-export const bookingAction = (action: string) => ({ created: 'Booking dibuat', rescheduled: 'Jadwal diubah', cancelled: 'Reservasi dibatalkan' })[action] ?? action
+export const bookingAction = (action: string) => ({ created: 'Booking dibuat', rescheduled: 'Jadwal diubah', cancelled: 'Reservasi dibatalkan', received: 'Kendaraan Diterima' })[action] ?? action
 export const bookingMoney = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 export const bookingTime = (value: string) => new Date(value).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' }) + ' WIB'
 export const slotTime = (value: number) => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`

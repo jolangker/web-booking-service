@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import QRCode from 'qrcode'
 import { BOOKING_QUEUE, drizzle, fromDrizzle, sql } from '@booking/db'
 import type { Database } from '@booking/db'
+import type { PoolClient } from 'pg'
 import type { Runtime } from './index.js'
 import type { Environment } from './env.js'
 import { tokenHash } from './admin.js'
@@ -61,9 +62,14 @@ export async function bookingSlots(database: Database, value: unknown) {
 }
 export async function reserveBooking(runtime: Runtime, env: Environment, customerId: string, value: unknown) {
   const input = bookingInput(value)
-  const requestHash = tokenHash(JSON.stringify(input))
   await runtime.startQueue()
-  const result = await transaction(runtime, async (tx) => {
+  const result = await transaction(runtime, tx => createBookingReservation(tx, runtime, env, customerId, input))
+  return { ...await bookingDetail(runtime, env, customerId, result.id), replayed: result.replayed }
+}
+
+// Internal transaction primitive shared by online booking and Admin reception; never take walkIn from an HTTP body.
+export async function createBookingReservation(tx: PoolClient, runtime: Runtime, env: Environment, customerId: string, input: ReturnType<typeof bookingInput>, walkIn = false) {
+    const requestHash = tokenHash(JSON.stringify(input))
     // Lock ordering is workshop -> customer/vehicle -> slot -> services, also used by Admin calendar/quotas.
     await lockWorkshop(tx)
     const { rows: [retry] } = await tx.query('SELECT id,request_hash FROM app.bookings WHERE customer_id=$1 AND idempotency_key=$2', [customerId, input.idempotencyKey])
@@ -72,7 +78,7 @@ export async function reserveBooking(runtime: Runtime, env: Environment, custome
       return { id: retry.id as string, replayed: true }
     }
     const { rows: [customer] } = await tx.query('SELECT name,verified_at FROM app.customers WHERE id=$1 FOR SHARE', [customerId])
-    if (!customer?.verified_at || !customer.name.trim()) throw new DomainError(422, 'Lengkapi nama dan verifikasi WhatsApp sebelum booking.')
+    if (!customer?.name.trim() || (!walkIn && !customer.verified_at)) throw new DomainError(422, 'Lengkapi nama dan verifikasi WhatsApp sebelum booking.')
     const { rows: [vehicle] } = await tx.query('SELECT plate,brand,model,year FROM app.vehicles WHERE id=$1 AND customer_id=$2 FOR SHARE', [input.vehicleId, customerId])
     if (!vehicle) throw new DomainError(404, 'Kendaraan tidak ditemukan.')
     const now = new Date()
@@ -81,7 +87,9 @@ export async function reserveBooking(runtime: Runtime, env: Environment, custome
     await persistSlots(tx, plan)
     const { rows: [slot] } = await tx.query('SELECT *,date::text AS day FROM app.slots WHERE id=$1 FOR UPDATE', [input.slotId])
     if (!slot) throw new DomainError(404, 'Slot tidak ditemukan.')
-    bookingDate(slot.day, now)
+    if (walkIn) {
+      if (slot.day !== today(now) || slot.ends_at <= now) throw new DomainError(409, 'Walk-in hanya pada slot hari ini yang belum berakhir.')
+    } else bookingDate(slot.day, now)
     const generated = generateSlots(calendar, slot.day).some(s => s.startMinute === slot.start_minute && s.endMinute === slot.end_minute)
     if (!slot.active || !generated) throw new DomainError(409, 'Slot tidak operasional. Pilih jadwal lain.')
     const { rowCount: duplicates } = await tx.query("SELECT id FROM app.bookings WHERE vehicle_id=$1 AND scheduled_at=$2 AND reservation_status='active'", [input.vehicleId, slot.starts_at])
@@ -96,7 +104,7 @@ export async function reserveBooking(runtime: Runtime, env: Environment, custome
     const { rows: [counter] } = await tx.query(`INSERT INTO app.booking_counters(date,value) VALUES($1,1)
       ON CONFLICT(date) DO UPDATE SET value=app.booking_counters.value+1 WHERE app.booking_counters.value<999 RETURNING value`, [issued])
     const code = bookingCode(issued, counter?.value ?? 1000)
-    const id = randomUUID(), reminderAt = reminderTime(slot.day, now), token = randomBytes(32).toString('base64url')
+    const id = randomUUID(), reminderAt = walkIn ? null : reminderTime(slot.day, now), token = randomBytes(32).toString('base64url')
     await tx.query(`INSERT INTO app.bookings(id,customer_id,vehicle_id,slot_id,code,idempotency_key,request_hash,complaint,vehicle_snapshot,estimated_total,estimated_minutes,scheduled_at,reminder_at)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [id, customerId, input.vehicleId, input.slotId, code, input.idempotencyKey, requestHash, input.complaint, JSON.stringify(vehicle), total, minutes, slot.starts_at, reminderAt])
     for (const s of services) await tx.query('INSERT INTO app.booking_services(booking_id,service_id,name,price,duration_minutes) VALUES($1,$2,$3,$4,$5)', [id, s.id, s.name, s.price, s.duration_minutes])
@@ -104,7 +112,7 @@ export async function reserveBooking(runtime: Runtime, env: Environment, custome
     await tx.query("INSERT INTO app.tracking_tokens(booking_id,token_hash,ciphertext,expires_at) VALUES($1,$2,$3,$4::timestamptz+interval '30 days')", [id, tokenHash(token), sealToken(env, id, token), slot.starts_at])
     // Wrap the SAME PoolClient, inside its open transaction, using pg-boss's public Drizzle adapter.
     const db = fromDrizzle(drizzle(tx), sql)
-    for (const kind of ['confirmation', ...(reminderAt ? ['reminder'] : [])]) {
+    for (const kind of walkIn ? [] : ['confirmation', ...(reminderAt ? ['reminder'] : [])]) {
       const notificationId = randomUUID()
       const queueJobId = await runtime.boss.send(BOOKING_QUEUE, { bookingId: id, version: 1, scheduledAt: slot.starts_at.toISOString(), notificationId }, {
         db, priority: 0, ...(kind === 'reminder' ? { startAfter: reminderAt! } : {}),
@@ -113,8 +121,6 @@ export async function reserveBooking(runtime: Runtime, env: Environment, custome
       await tx.query('INSERT INTO app.notifications(id,booking_id,booking_version,scheduled_at,kind,queue_job_id) VALUES($1,$2,1,$3,$4,$5)', [notificationId, id, slot.starts_at, kind, queueJobId])
     }
     return { id, replayed: false }
-  })
-  return { ...await bookingDetail(runtime, env, customerId, result.id), replayed: result.replayed }
 }
 
 export async function mutateBooking(runtime: Runtime, env: Environment, customerId: string, id: unknown, action: 'reschedule' | 'cancel', value: unknown) {

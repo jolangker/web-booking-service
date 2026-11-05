@@ -182,6 +182,21 @@ export const bookingHistory = appSchema.table('booking_history', {
 }, t => [unique('booking_history_version').on(t.bookingId, t.version), unique('booking_mutation_retry').on(t.bookingId, t.idempotencyKey),
   check('booking_history_reservation', sql`${t.reservationStatus} IN ('active','cancelled')`)])
 
+export const workOrders = appSchema.table('work_orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  bookingId: uuid('booking_id').notNull().unique().references(() => bookings.id),
+  odometer: integer('odometer').notNull(),
+  initialCondition: text('initial_condition').notNull(),
+  pit: text('pit').notNull().default(''),
+  assignee: text('assignee').notNull().default(''),
+  origin: text('origin').notNull(),
+  receivedBy: uuid('received_by').notNull().references(() => admins.id),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
+  version: integer('version').notNull().default(1),
+  idempotencyKey: uuid('idempotency_key').notNull().unique(),
+  requestHash: text('request_hash').notNull(),
+}, t => [check('work_order_values', sql`${t.odometer} BETWEEN 0 AND 9999999 AND length(trim(${t.initialCondition})) BETWEEN 1 AND 2000 AND length(${t.pit}) <= 60 AND length(${t.assignee}) <= 100 AND ${t.version} > 0 AND ${t.origin} IN ('online','walk_in')`)])
+
 export const trackingTokens = appSchema.table('tracking_tokens', {
   bookingId: uuid('booking_id').primaryKey().references(() => bookings.id),
   tokenHash: text('token_hash').notNull().unique(),
@@ -201,7 +216,7 @@ export const notifications = appSchema.table('notifications', {
   status: text('status').notNull().default('queued'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('booking_notification_version').on(t.bookingId, t.bookingVersion, t.kind),
-  check('notification_target', sql`(${t.kind} = 'otp' AND ${t.challengeId} IS NOT NULL AND ${t.bookingId} IS NULL AND ${t.bookingVersion} IS NULL AND ${t.scheduledAt} IS NULL) OR (${t.kind} IN ('confirmation','reminder') AND ${t.challengeId} IS NULL AND ${t.bookingId} IS NOT NULL AND ${t.bookingVersion} IS NOT NULL AND ${t.bookingVersion} > 0 AND ${t.scheduledAt} IS NOT NULL)`),
+  check('notification_target', sql`(${t.kind} = 'otp' AND ${t.challengeId} IS NOT NULL AND ${t.bookingId} IS NULL AND ${t.bookingVersion} IS NULL AND ${t.scheduledAt} IS NULL) OR (${t.kind} IN ('confirmation','reminder','received') AND ${t.challengeId} IS NULL AND ${t.bookingId} IS NOT NULL AND ${t.bookingVersion} IS NOT NULL AND ${t.bookingVersion} > 0 AND ${t.scheduledAt} IS NOT NULL)`),
   check('notification_status', sql`${t.status} IN ('queued','retrying','sending','accepted','sent','delivered','read','failed','unknown','stale')`)])
 
 export const deliveryAttempts = appSchema.table('delivery_attempts', {

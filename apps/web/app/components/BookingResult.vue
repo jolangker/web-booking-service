@@ -18,8 +18,9 @@ const deliveryStatus = (status: string) => ({ queued: 'Menunggu pengiriman', ret
     <p v-if="booking.trackingUrl"><a :href="booking.trackingUrl" referrerpolicy="no-referrer">Pantau status booking</a></p>
     <p v-else class="muted">Tautan tracking telah berakhir atau dicabut.</p>
     <h3>Notifikasi WhatsApp</h3>
-    <ul><li v-for="n in booking.notifications" :key="n.id">{{ n.kind === 'reminder' ? 'Reminder' : 'Konfirmasi' }} (versi {{ n.version }}): {{ deliveryStatus(n.status) }}</li></ul>
+    <ul><li v-for="n in booking.notifications" :key="n.id">{{ n.kind === 'received' ? 'Kendaraan Diterima' : n.kind === 'reminder' ? 'Reminder' : 'Konfirmasi' }} (versi {{ n.version }}): {{ deliveryStatus(n.status) }}</li></ul>
     <p v-if="booking.reservationStatus === 'cancelled'" class="muted">Reminder reservasi dibatalkan.</p>
+    <p v-else-if="booking.status !== 'confirmed'" class="muted">Kendaraan sudah diterima bengkel. Reminder kedatangan dihentikan.</p>
     <p v-else class="muted">{{ booking.reminderAt ? `Reminder dijadwalkan ${bookingTime(booking.reminderAt)}.` : 'Waktu reminder H-1 pukul 16:00 WIB sudah lewat; reminder dilewati.' }} Booking tetap tersimpan meskipun pengiriman WhatsApp mengalami gangguan.</p>
     <h3>Riwayat booking</h3>
     <ol><li v-for="h in booking.history" :key="h.version"><strong>{{ bookingAction(h.action) }}</strong> · {{ bookingTime(h.occurredAt) }}<p v-if="h.action === 'rescheduled'">{{ h.previousScheduledAt ? bookingTime(h.previousScheduledAt) : '' }} → {{ bookingTime(h.scheduledAt) }}</p></li></ol>

@@ -1,10 +1,14 @@
-import { changeCalendar, changeSlotQuota, customerProfile, deliveryLog, gatewayStatus, getCalendar, getSlots, otpStatus, requestOtp, saveCustomer, saveService, saveVehicle, searchCustomers, tokenHash, verifyOtp } from '@booking/core'
+import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getSlots, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, saveCustomer, saveService, saveVehicle, searchCustomers, tokenHash, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, sessionCookie } from '../../utils/admin'
 import { environment, runtime } from '../../utils/runtime'
 
 export default defineEventHandler(event => adminOperation(async () => {
   const path = getRouterParam(event, 'path') ?? ''
   const method = event.method
+  if (path === 'reception' && method === 'GET') return receptionDashboard(runtime, getQuery(event).q)
+  if (path === 'reception/walk-in' && method === 'POST') return receiveWalkIn(runtime, environment, event.context.admin.id, await adminBody(event))
+  const reception = /^reception\/([0-9a-f-]+)\/check-in$/.exec(path)
+  if (reception && method === 'POST') return checkInBooking(runtime, event.context.admin.id, reception[1], await adminBody(event))
   if (path === 'customers' && method === 'GET') return searchCustomers(runtime, getQuery(event).q)
   if (path === 'customers' && method === 'POST') { setResponseStatus(event, 201); return saveCustomer(runtime, await adminBody(event)) }
   const customer = /^customers\/([0-9a-f-]+)$/.exec(path)
