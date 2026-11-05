@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { CostLine } from './DraftCostEditor.vue'
+const props = defineProps<{ initialBookingId?: string }>()
 interface Order { id: string, code: string, status: string, customerName: string, vehicle: { plate: string }, number: string | null, pdfStatus: string | null }
-interface Detail { workOrder: { bookingId: string, code: string, version: number, status: string, customerName: string, vehicle: { plate: string } }, draft: { lines: CostLine[], total: number } }
+interface Detail { workOrder: { bookingId: string, code: string, version: number, status: string, customerName: string, vehicle: { plate: string } }, draft: { lines: CostLine[], serviceSubtotal: number, partSubtotal: number, total: number } }
 interface Payment { id: string, invoiceId: string, number: string, total: number, received: number, change: number, method: string, reference: string, paidAt: string, pdfStatus: string }
 const { request } = useAdmin()
 const orders = ref<Order[]>([]), services = ref<{ id: string, name: string, price: number, active: boolean }[]>([])
@@ -69,6 +70,7 @@ onMounted(() => {
   const stored = sessionStorage.getItem(storageKey)
   if (stored) { try { pending.value = JSON.parse(stored) } catch { sessionStorage.removeItem(storageKey) } }
   void load()
+  if (props.initialBookingId) void open(props.initialBookingId)
   polling = setInterval(() => { if (payment.value && payment.value.pdfStatus !== 'ready') void refreshPayment() }, 5000)
 })
 onBeforeUnmount(() => clearInterval(polling))
@@ -87,6 +89,9 @@ onBeforeUnmount(() => clearInterval(polling))
         <p>{{ detail.workOrder.customerName }} · {{ bookingStatus(detail.workOrder.status) }}</p>
         <section v-if="payment" data-paid-invoice>
           <h3>LUNAS · {{ payment.number }}</h3><p>Total server: <strong>{{ bookingMoney(payment.total) }}</strong></p><p>Diterima {{ bookingMoney(payment.received) }} · Kembalian {{ bookingMoney(payment.change) }}</p><p>{{ bookingTime(payment.paidAt) }} · {{ payment.method }} {{ payment.reference }}</p>
+          <h4>Rincian aktual terkunci</h4>
+          <ul><li v-for="(line, index) in detail.draft.lines" :key="index">{{ line.kind === 'service' ? 'Jasa' : 'Part' }} · {{ line.description }} · {{ line.quantity }} × {{ bookingMoney(line.unitPrice) }} = {{ bookingMoney(line.quantity * line.unitPrice) }}</li></ul>
+          <p>Jasa {{ bookingMoney(detail.draft.serviceSubtotal) }} · Part {{ bookingMoney(detail.draft.partSubtotal) }}</p>
           <p data-pdf-status role="status">PDF: {{ ({ pending: 'Masih diproses', failed: 'Penerbitan gagal; pembayaran tetap LUNAS', ready: 'Siap dilihat / diunduh / dicetak' })[payment.pdfStatus] ?? payment.pdfStatus }}</p>
           <div v-if="payment.pdfStatus === 'ready'" class="actions"><a data-invoice-view :href="`/api/admin/invoices/${payment.invoiceId}/file`" target="_blank" rel="noopener">Lihat / cetak PDF</a><a :href="`/api/admin/invoices/${payment.invoiceId}/file?download=1`">Unduh PDF</a></div>
           <p v-if="payment.pdfStatus === 'ready'" class="muted">Buka PDF dan gunakan tombol cetak browser untuk kertas A4. Jika arsip hilang / rusak, terbitkan ulang dari snapshot.</p>

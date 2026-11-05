@@ -19,6 +19,7 @@
     "verify:reception": "node --env-file-if-exists=.env scripts/verify-reception.mjs",
     "verify:progress": "node --env-file-if-exists=.env scripts/verify-progress.mjs",
     "verify:payment": "node --env-file-if-exists=.env scripts/verify-payment.mjs",
+    "verify:reports": "node --env-file-if-exists=.env scripts/verify-reports.mjs",
     "verify:history": "node --env-file-if-exists=.env scripts/verify-history.mjs",
     "dev": "node --env-file-if-exists=.env scripts/run.mjs dev",
     "dev:web": "node --env-file-if-exists=.env scripts/run.mjs web",

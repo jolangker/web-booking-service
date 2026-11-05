@@ -153,6 +153,7 @@ export const bookings = appSchema.table('bookings', {
   index('booking_customer_created').on(t.customerId, t.createdAt),
   unique('booking_id_owner').on(t.id, t.customerId),
   index('booking_slot').on(t.slotId),
+  index('booking_report_check_in').on(t.checkedInAt, t.id).where(sql`${t.reservationStatus} = 'active' AND ${t.checkedInAt} IS NOT NULL`),
   uniqueIndex('booking_vehicle_slot_active').on(t.vehicleId, t.scheduledAt).where(sql`${t.reservationStatus} = 'active'`),
   check('booking_values', sql`${t.code} ~ '^BK-[0-9]{8}-[0-9]{3}$' AND length(trim(${t.complaint})) BETWEEN 1 AND 2000 AND ${t.estimatedTotal} >= 0 AND ${t.estimatedMinutes} > 0 AND ${t.version} > 0`),
   check('booking_status', sql`${t.status} IN ('confirmed','received','in_progress','completed','collected')`),
@@ -250,7 +251,7 @@ export const payments = appSchema.table('payments', {
   paidAt: timestamp('paid_at', { withTimezone: true }).notNull(),
   idempotencyKey: uuid('idempotency_key').notNull().unique(),
   requestHash: text('request_hash').notNull(),
-}, t => [check('payment_values', sql`${t.status}='paid' AND ${t.total} BETWEEN 1 AND 2147483647 AND ${t.received} >= ${t.total} AND ${t.change}=${t.received}-${t.total} AND ((${t.method}='cash' AND ${t.reference}='') OR (${t.method} IN ('qris','edc') AND ${t.received}=${t.total} AND length(trim(${t.reference})) BETWEEN 1 AND 100))`)])
+}, t => [index('payment_report_paid_at').on(t.paidAt, t.id), check('payment_values', sql`${t.status}='paid' AND ${t.total} BETWEEN 1 AND 2147483647 AND ${t.received} >= ${t.total} AND ${t.change}=${t.received}-${t.total} AND ((${t.method}='cash' AND ${t.reference}='') OR (${t.method} IN ('qris','edc') AND ${t.received}=${t.total} AND length(trim(${t.reference})) BETWEEN 1 AND 100))`)])
 
 export const invoices = appSchema.table('invoices', {
   id: uuid('id').primaryKey(),

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 const { username, authenticate, request, csrf } = useAdmin()
 const tab = ref('reception'), error = ref(''), ready = ref(false), busy = ref(false)
+const route = useRoute()
+watch(() => route.query.tab, value => {
+  tab.value = typeof value === 'string' && ['reception', 'progress', 'cashier', 'reports', 'services', 'calendar', 'slots', 'customers', 'gateway'].includes(value) ? value : 'reception'
+}, { immediate: true })
+const initialBookingId = computed(() => typeof route.query.booking === 'string' && /^[0-9a-f-]{36}$/.test(route.query.booking) ? route.query.booking : undefined)
 async function prepare() {
   error.value = ''
   try { if (await authenticate()) ready.value = true; else await navigateTo('/admin/login') }
@@ -33,11 +38,12 @@ async function logout() {
     <p v-if="!ready && !error" role="status">Memuat sesi Admin…</p>
     <template v-if="ready">
       <nav class="admin-tabs" aria-label="Konfigurasi bengkel">
-        <button v-for="item in [{ id: 'reception', label: 'Penerimaan' }, { id: 'progress', label: 'Pengerjaan / WO' }, { id: 'cashier', label: 'Kasir / Invoice' }, { id: 'services', label: 'Layanan' }, { id: 'calendar', label: 'Jam & hari libur' }, { id: 'slots', label: 'Preview & kuota' }, { id: 'customers', label: 'Pelanggan' }, { id: 'gateway', label: 'WhatsApp' }]" :key="item.id" :aria-current="tab === item.id ? 'page' : undefined" @click="tab = item.id">{{ item.label }}</button>
+        <button v-for="item in [{ id: 'reception', label: 'Penerimaan' }, { id: 'progress', label: 'Pengerjaan / WO' }, { id: 'cashier', label: 'Kasir / Invoice' }, { id: 'reports', label: 'Laporan' }, { id: 'services', label: 'Layanan' }, { id: 'calendar', label: 'Jam & hari libur' }, { id: 'slots', label: 'Preview & kuota' }, { id: 'customers', label: 'Pelanggan' }, { id: 'gateway', label: 'WhatsApp' }]" :key="item.id" :aria-current="tab === item.id ? 'page' : undefined" @click="navigateTo({ path: '/admin', query: { tab: item.id } })">{{ item.label }}</button>
       </nav>
       <AdminReception v-if="tab === 'reception'" />
-      <AdminWorkOrders v-if="tab === 'progress'" />
-      <AdminCashier v-if="tab === 'cashier'" />
+      <AdminWorkOrders v-if="tab === 'progress'" :key="initialBookingId" :initial-booking-id="initialBookingId" />
+      <AdminCashier v-if="tab === 'cashier'" :key="initialBookingId" :initial-booking-id="initialBookingId" />
+      <AdminReports v-if="tab === 'reports'" />
       <AdminServices v-if="tab === 'services'" />
       <AdminCalendar v-if="tab === 'calendar'" />
       <AdminSlots v-if="tab === 'slots'" />

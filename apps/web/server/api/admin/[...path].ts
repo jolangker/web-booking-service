@@ -1,10 +1,11 @@
-import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceDeliveries, invoiceFile, listCashier, listWorkOrders, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, sendInvoice, settlePayment, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
+import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceDeliveries, invoiceFile, listCashier, listWorkOrders, operationalReport, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, sendInvoice, settlePayment, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, sessionCookie } from '../../utils/admin'
 import { environment, runtime } from '../../utils/runtime'
 
 export default defineEventHandler(event => adminOperation(async () => {
   const path = getRouterParam(event, 'path') ?? ''
   const method = event.method
+  if (path === 'reports' && method === 'GET') return operationalReport(runtime, getQuery(event))
   if (path === 'cashier' && method === 'GET') return listCashier(runtime)
   const payment = /^work-orders\/([0-9a-f-]+)\/payment$/.exec(path)
   if (payment && method === 'GET') return { payment: await getPayment(runtime, payment[1]) }

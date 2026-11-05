@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CostLine } from './DraftCostEditor.vue'
+const props = defineProps<{ initialBookingId?: string }>()
 interface WorkOrder { id: string, bookingId: string, version: number, code: string, status: string, odometer: number, initialCondition: string, pit: string, assignee: string, diagnosis: string, inspection: string, notes: string, complaint: string, vehicle: { plate: string }, customerName: string, phone: string }
 interface Detail { workOrder: WorkOrder, draft: { lines: CostLine[], serviceSubtotal: number, partSubtotal: number, total: number }, history: { version: number, status: string, occurredAt: string, estimate: { total: number } | null }[], changes: { version: number, action: string, actorId: string, reason: string, before: unknown, after: unknown, occurredAt: string }[], tracking: { url: string | null, expiresAt: string, revokedAt: string | null }, replayed?: boolean }
 const { request } = useAdmin()
@@ -49,6 +50,7 @@ onMounted(() => {
   const stored = sessionStorage.getItem(storageKey)
   if (stored) { try { pending.value = JSON.parse(stored) } catch { sessionStorage.removeItem(storageKey) } }
   void load()
+  if (props.initialBookingId) void open(props.initialBookingId)
 })
 </script>
 
