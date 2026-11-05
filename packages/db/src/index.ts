@@ -13,6 +13,7 @@ export const QUEUE_SCHEMA = 'queue'
 export const DEMO_QUEUE = 'development-example'
 export const OTP_QUEUE = 'customer-otp'
 export const BOOKING_QUEUE = 'booking-messages'
+export const INVOICE_QUEUE = 'invoice-pdf'
 
 export function createDatabase(connectionString: string) {
   const pool = new pg.Pool({

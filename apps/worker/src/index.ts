@@ -1,7 +1,8 @@
 import { createServer } from 'node:http'
-import { authorized, BOOKING_QUEUE, createRuntime, dispatchBooking, dispatchOtp, expireOtpPayloads, OTP_QUEUE, readEnvironment } from '@booking/core'
+import { authorized, BOOKING_QUEUE, createRuntime, dispatchBooking, dispatchOtp, expireOtpPayloads, INVOICE_QUEUE, issueInvoice, OTP_QUEUE, readEnvironment } from '@booking/core'
 import type { BookingMessage } from '@booking/core'
 import { checkDatabase, DEMO_QUEUE } from '@booking/db'
+import { renderInvoice } from './pdf.ts'
 
 const env = readEnvironment()
 const runtime = createRuntime(env, 'worker')
@@ -65,6 +66,9 @@ try {
   })
   await runtime.boss.work<BookingMessage>(BOOKING_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
     await dispatchBooking(runtime, env, job!.data, job!.id)
+  })
+  await runtime.boss.work<{ invoiceId: string }>(INVOICE_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
+    await issueInvoice(runtime, env, job!.data.invoiceId, job!.id, renderInvoice)
   })
   let cleaning = false
   maintenance = setInterval(async () => {

@@ -13,6 +13,8 @@ export * from './booking.js'
 export * from './booking-messaging.js'
 export * from './reception.js'
 export * from './progress.js'
+export * from './payment.js'
+export * from './invoice.js'
 
 export function authorized(token: string | undefined, expected: string) {
   if (!token) return false

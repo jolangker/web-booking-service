@@ -18,6 +18,7 @@
     "verify:manage-booking": "node --env-file-if-exists=.env scripts/verify-manage-booking.mjs",
     "verify:reception": "node --env-file-if-exists=.env scripts/verify-reception.mjs",
     "verify:progress": "node --env-file-if-exists=.env scripts/verify-progress.mjs",
+    "verify:payment": "node --env-file-if-exists=.env scripts/verify-payment.mjs",
     "dev": "node --env-file-if-exists=.env scripts/run.mjs dev",
     "dev:web": "node --env-file-if-exists=.env scripts/run.mjs web",
     "dev:worker": "node --env-file-if-exists=.env scripts/run.mjs worker",

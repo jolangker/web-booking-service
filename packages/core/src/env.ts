@@ -1,3 +1,5 @@
+import { isAbsolute, resolve } from 'node:path'
+
 export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   const invalid = new Set<string>()
   const required = (name: string) => {
@@ -34,12 +36,18 @@ export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   if (!['true', 'false'].includes(debug) || (appEnv !== 'development' && debug === 'true')) invalid.add('DEBUG_RUNTIME')
   const healthPort = Number(source.WORKER_HEALTH_PORT ?? 3002)
   if (!Number.isInteger(healthPort) || healthPort < 1 || healthPort > 65535) invalid.add('WORKER_HEALTH_PORT')
+  const invoiceStoragePath = source.INVOICE_STORAGE_PATH ?? resolve('storage/invoices')
+  if (!isAbsolute(invoiceStoragePath)) invalid.add('INVOICE_STORAGE_PATH')
   if (invalid.size) throw new Error(`Invalid environment: ${[...invalid].join(', ')}`)
   return {
     appEnv, appOrigin, databaseUrl, healthToken, wahaApiKey, wahaBaseUrl, otpSecret, wahaWebhookSecret,
     debugRuntime: appEnv === 'development' && debug === 'true',
     workerHealthHost: source.WORKER_HEALTH_HOST ?? '127.0.0.1',
     workerHealthPort: healthPort,
+    invoiceStoragePath,
+    workshopName: source.WORKSHOP_NAME?.trim() ?? '',
+    workshopAddress: source.WORKSHOP_ADDRESS?.trim() ?? '',
+    workshopPhone: source.WORKSHOP_PHONE?.trim() ?? '',
   }
 }
 export type Environment = ReturnType<typeof readEnvironment>

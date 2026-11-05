@@ -1,10 +1,24 @@
-import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getSlots, getWorkOrder, listWorkOrders, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, saveCustomer, saveService, saveVehicle, searchCustomers, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
+import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceFile, listCashier, listWorkOrders, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, settlePayment, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, sessionCookie } from '../../utils/admin'
 import { environment, runtime } from '../../utils/runtime'
 
 export default defineEventHandler(event => adminOperation(async () => {
   const path = getRouterParam(event, 'path') ?? ''
   const method = event.method
+  if (path === 'cashier' && method === 'GET') return listCashier(runtime)
+  const payment = /^work-orders\/([0-9a-f-]+)\/payment$/.exec(path)
+  if (payment && method === 'GET') return { payment: await getPayment(runtime, payment[1]) }
+  if (payment && method === 'POST') return settlePayment(runtime, environment, event.context.admin.id, payment[1], await adminBody(event))
+  const invoice = /^invoices\/([0-9a-f-]+)(?:\/(file|retry))?$/.exec(path)
+  if (invoice && !invoice[2] && method === 'GET') return getInvoice(runtime, invoice[1])
+  if (invoice && invoice[2] === 'retry' && method === 'POST') { await adminBody(event); return retryInvoice(runtime, environment, invoice[1]) }
+  if (invoice && invoice[2] === 'file' && method === 'GET') {
+    const file = await invoiceFile(runtime, environment, invoice[1])
+    setHeader(event, 'Content-Type', 'application/pdf')
+    setHeader(event, 'Content-Disposition', `${getQuery(event).download === '1' ? 'attachment' : 'inline'}; filename="${file.number}.pdf"`)
+    setHeader(event, 'Content-Length', file.data.length)
+    return send(event, file.data)
+  }
   if (path === 'work-orders' && method === 'GET') return listWorkOrders(runtime)
   const workOrder = /^work-orders\/([0-9a-f-]+)$/.exec(path)
   if (workOrder && method === 'GET') return getWorkOrder(runtime, environment, workOrder[1])

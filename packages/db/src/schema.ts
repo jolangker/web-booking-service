@@ -231,6 +231,62 @@ export const workOrderChanges = appSchema.table('work_order_changes', {
 }, t => [unique('work_order_change_version').on(t.workOrderId, t.version),
   check('work_order_change_values', sql`${t.version} > 1 AND ${t.action} IN ('save','start','complete','rotate_tracking','revoke_tracking') AND length(trim(${t.reason})) BETWEEN 1 AND 500`)])
 
+export const invoiceCounters = appSchema.table('invoice_counters', {
+  date: date('date').primaryKey(),
+  value: integer('value').notNull(),
+}, t => [check('invoice_counter_range', sql`${t.value} BETWEEN 1 AND 999999`)])
+
+export const payments = appSchema.table('payments', {
+  id: uuid('id').primaryKey(),
+  bookingId: uuid('booking_id').notNull().unique().references(() => bookings.id),
+  workOrderId: uuid('work_order_id').notNull().unique().references(() => workOrders.id),
+  method: text('method').notNull(),
+  reference: text('reference').notNull(),
+  status: text('status').notNull().default('paid'),
+  total: integer('total').notNull(),
+  received: integer('received').notNull(),
+  change: integer('change').notNull(),
+  paidBy: uuid('paid_by').notNull().references(() => admins.id),
+  paidAt: timestamp('paid_at', { withTimezone: true }).notNull(),
+  idempotencyKey: uuid('idempotency_key').notNull().unique(),
+  requestHash: text('request_hash').notNull(),
+}, t => [check('payment_values', sql`${t.status}='paid' AND ${t.total} BETWEEN 1 AND 2147483647 AND ${t.received} >= ${t.total} AND ${t.change}=${t.received}-${t.total} AND ((${t.method}='cash' AND ${t.reference}='') OR (${t.method} IN ('qris','edc') AND ${t.received}=${t.total} AND length(trim(${t.reference})) BETWEEN 1 AND 100))`)])
+
+export const invoices = appSchema.table('invoices', {
+  id: uuid('id').primaryKey(),
+  paymentId: uuid('payment_id').notNull().unique().references(() => payments.id),
+  number: text('number').notNull().unique(),
+  snapshot: jsonb('snapshot').notNull(),
+  status: text('status').notNull().default('pending'),
+  queueJobId: uuid('queue_job_id').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  fileHash: text('file_hash'),
+  fileSize: integer('file_size'),
+  readyAt: timestamp('ready_at', { withTimezone: true }),
+}, t => [check('invoice_number', sql`${t.number} ~ '^INV-[0-9]{8}-[0-9]{6}$'`),
+  check('invoice_issuance', sql`${t.status} IN ('pending','ready','failed') AND ${t.attempts}>=0 AND (${t.status}<>'ready' OR (${t.fileHash} IS NOT NULL AND ${t.fileSize}>0 AND ${t.readyAt} IS NOT NULL))`)])
+
+export const invoiceLines = appSchema.table('invoice_lines', {
+  invoiceId: uuid('invoice_id').notNull().references(() => invoices.id),
+  position: integer('position').notNull(),
+  kind: text('kind').notNull(),
+  description: text('description').notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: integer('unit_price').notNull(),
+}, t => [unique('invoice_line_position').on(t.invoiceId, t.position),
+  check('invoice_line_values', sql`${t.position} BETWEEN 0 AND 99 AND ${t.kind} IN ('service','part') AND length(trim(${t.description})) BETWEEN 1 AND 200 AND ${t.quantity} BETWEEN 1 AND 999 AND ${t.unitPrice}>=0 AND ${t.quantity}::bigint*${t.unitPrice}<=2147483647`)])
+
+export const serviceArchives = appSchema.table('service_archives', {
+  id: uuid('id').primaryKey(),
+  bookingId: uuid('booking_id').notNull().unique().references(() => bookings.id),
+  invoiceId: uuid('invoice_id').notNull().unique().references(() => invoices.id),
+  customerId: uuid('customer_id').notNull().references(() => customers.id),
+  vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id),
+  snapshot: jsonb('snapshot').notNull(),
+  archivedAt: timestamp('archived_at', { withTimezone: true }).notNull(),
+}, t => [index('service_archive_owner').on(t.customerId, t.vehicleId, t.archivedAt)])
+
 export const trackingTokens = appSchema.table('tracking_tokens', {
   bookingId: uuid('booking_id').primaryKey().references(() => bookings.id),
   tokenHash: text('token_hash').notNull().unique(),

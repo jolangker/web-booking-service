@@ -9,6 +9,10 @@ x-runtime: &runtime
   WAHA_WEBHOOK_SECRET: ${WAHA_WEBHOOK_SECRET:?Set WAHA_WEBHOOK_SECRET}
   WAHA_BASE_URL: https://${GATEWAY_DOMAIN:?Set GATEWAY_DOMAIN}
   DEBUG_RUNTIME: "false"
+  INVOICE_STORAGE_PATH: /app/storage/invoices
+  WORKSHOP_NAME: ${WORKSHOP_NAME:?Set WORKSHOP_NAME}
+  WORKSHOP_ADDRESS: ${WORKSHOP_ADDRESS:?Set WORKSHOP_ADDRESS}
+  WORKSHOP_PHONE: ${WORKSHOP_PHONE:?Set WORKSHOP_PHONE}
 services:
   caddy:
     image: caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
@@ -44,6 +48,7 @@ services:
       retries: 10
       start_period: 20s
   worker:
+    init: true
     image: booking-worker:scaffold
     build: { context: .., dockerfile: infra/Dockerfile.worker }
     restart: unless-stopped
