@@ -15,7 +15,7 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     await tx.query('SELECT pg_advisory_lock(hashtext($1))', [lock])
     await tx.query('BEGIN')
     const { rows: [n] } = await tx.query(`SELECT n.*,b.status AS booking_status,b.reservation_status,b.version AS current_version,b.scheduled_at AS current_schedule,b.code,
-      c.phone,t.ciphertext,t.expires_at,t.revoked_at,h.status AS event_status,h.action AS event_action,h.occurred_at AS event_time,h.scheduled_at AS event_schedule
+      c.phone,t.ciphertext,t.expires_at,t.revoked_at,h.status AS event_status,h.action AS event_action,h.occurred_at AS event_time,h.scheduled_at AS event_schedule,h.estimate AS event_estimate
       FROM app.notifications n JOIN app.bookings b ON b.id=n.booking_id
       JOIN app.customers c ON c.id=b.customer_id JOIN app.tracking_tokens t ON t.booking_id=b.id
       LEFT JOIN app.booking_history h ON h.booking_id=b.id AND h.version=n.booking_version
@@ -28,10 +28,11 @@ export async function dispatchBooking(database: Database, env: Environment, job:
       await tx.query('COMMIT'); return
     }
     let now = new Date()
-    const received = n.kind === 'received'
-    if (n.reservation_status !== 'active' || n.booking_status !== (received ? 'received' : 'confirmed') || n.current_version !== job.version || n.booking_version !== job.version
-      || (received && (n.event_status !== 'received' || n.event_action !== 'received' || n.event_schedule?.toISOString() !== job.scheduledAt))
-      || n.current_schedule.toISOString() !== job.scheduledAt || n.scheduled_at.toISOString() !== job.scheduledAt || (!received && n.current_schedule <= now)) {
+    const progress = ['received', 'in_progress', 'completed'].includes(n.kind)
+    if (n.reservation_status !== 'active' || n.booking_status !== (progress ? n.kind : 'confirmed') || n.current_version !== job.version || n.booking_version !== job.version
+      || (progress && (n.event_status !== n.kind || n.event_action !== n.kind || n.event_schedule?.toISOString() !== job.scheduledAt))
+      || (n.kind === 'completed' && !n.event_estimate)
+      || n.current_schedule.toISOString() !== job.scheduledAt || n.scheduled_at.toISOString() !== job.scheduledAt || (!progress && n.current_schedule <= now)) {
       await tx.query("UPDATE app.notifications SET status='stale' WHERE id=$1", [n.id])
       await tx.query('COMMIT'); return
     }
@@ -42,7 +43,7 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     // Gateway preflight has no send side effect; a stopped gateway can be retried safely.
     const gateway = await gatewayStatus(env)
     now = new Date()
-    if (!received && n.current_schedule <= now) {
+    if (!progress && n.current_schedule <= now) {
       await tx.query("UPDATE app.notifications SET status='stale' WHERE id=$1", [n.id])
       await tx.query('COMMIT'); return
     }
@@ -64,7 +65,7 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     const { rows: [gate] } = await tx.query('SELECT next_at<=clock_timestamp() AS ready FROM app.gateway_dispatch WHERE id=1 FOR UPDATE')
     if (!gate.ready) throw new Error('Booking dispatch rate limited')
     now = new Date()
-    if (!received && n.current_schedule <= now) {
+    if (!progress && n.current_schedule <= now) {
       await tx.query("UPDATE app.notifications SET status='stale' WHERE id=$1", [n.id])
       await tx.query('COMMIT'); return
     }
@@ -74,8 +75,9 @@ export async function dispatchBooking(database: Database, env: Environment, job:
     await tx.query('COMMIT')
     const schedule = n.current_schedule.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' })
     const link = !n.revoked_at && n.expires_at > now ? ` Tracking: ${env.appOrigin}/tracking#${openTrackingToken(env, job.bookingId, n.ciphertext)}` : ''
-    const message = received
-      ? `Kendaraan Diterima ${n.code}. Diterima bengkel: ${n.event_time.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' })} WIB.${link}`
+    const eventTime = n.event_time?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' })
+    const message = progress
+      ? `${n.kind === 'received' ? 'Kendaraan Diterima' : n.kind === 'in_progress' ? 'Sedang Dikerjakan' : 'Selesai Dikerjakan'} ${n.code}. Waktu: ${eventTime} WIB.${n.kind === 'completed' ? ` Estimasi tagihan ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n.event_estimate.total)} (draft saat selesai). Pembayaran belum lunas; tagihan dapat berubah sebelum pembayaran.` : ''}${link}`
       : `${n.kind === 'reminder' ? 'Pengingat booking aktif' : 'Booking Terkonfirmasi'} ${n.code}. Jadwal kedatangan: ${schedule} WIB. Tunjukkan kode atau QR di bengkel.${link}`
     let outcome = 'unknown', status = 'unknown', httpStatus: number | null = null, messageId: string | null = null
     try {

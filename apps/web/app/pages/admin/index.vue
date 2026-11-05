@@ -13,6 +13,7 @@ async function logout() {
     await request('/api/admin/auth', 'DELETE')
     csrf.value = ''; username.value = ''
     sessionStorage.removeItem('reception-check-in'); sessionStorage.removeItem('reception-walk-in')
+    sessionStorage.removeItem('work-order-mutation')
     await navigateTo('/admin/login')
   } catch (e) { error.value = adminError(e) }
   finally { busy.value = false }
@@ -30,9 +31,10 @@ async function logout() {
     <p v-if="!ready && !error" role="status">Memuat sesi Admin…</p>
     <template v-if="ready">
       <nav class="admin-tabs" aria-label="Konfigurasi bengkel">
-        <button v-for="item in [{ id: 'reception', label: 'Penerimaan' }, { id: 'services', label: 'Layanan' }, { id: 'calendar', label: 'Jam & hari libur' }, { id: 'slots', label: 'Preview & kuota' }, { id: 'customers', label: 'Pelanggan' }, { id: 'gateway', label: 'WhatsApp' }]" :key="item.id" :aria-current="tab === item.id ? 'page' : undefined" @click="tab = item.id">{{ item.label }}</button>
+        <button v-for="item in [{ id: 'reception', label: 'Penerimaan' }, { id: 'progress', label: 'Pengerjaan / WO' }, { id: 'services', label: 'Layanan' }, { id: 'calendar', label: 'Jam & hari libur' }, { id: 'slots', label: 'Preview & kuota' }, { id: 'customers', label: 'Pelanggan' }, { id: 'gateway', label: 'WhatsApp' }]" :key="item.id" :aria-current="tab === item.id ? 'page' : undefined" @click="tab = item.id">{{ item.label }}</button>
       </nav>
       <AdminReception v-if="tab === 'reception'" />
+      <AdminWorkOrders v-if="tab === 'progress'" />
       <AdminServices v-if="tab === 'services'" />
       <AdminCalendar v-if="tab === 'calendar'" />
       <AdminSlots v-if="tab === 'slots'" />

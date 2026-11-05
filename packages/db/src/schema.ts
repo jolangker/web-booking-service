@@ -178,6 +178,8 @@ export const bookingHistory = appSchema.table('booking_history', {
   previousScheduledAt: timestamp('previous_scheduled_at', { withTimezone: true }),
   idempotencyKey: uuid('idempotency_key'),
   requestHash: text('request_hash'),
+  actorId: uuid('actor_id').references(() => admins.id),
+  estimate: jsonb('estimate').$type<{ currency: 'IDR', workOrderVersion: number, lines: { kind: string, description: string, quantity: number, unitPrice: number }[], serviceSubtotal: number, partSubtotal: number, total: number }>(),
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('booking_history_version').on(t.bookingId, t.version), unique('booking_mutation_retry').on(t.bookingId, t.idempotencyKey),
   check('booking_history_reservation', sql`${t.reservationStatus} IN ('active','cancelled')`)])
@@ -189,13 +191,45 @@ export const workOrders = appSchema.table('work_orders', {
   initialCondition: text('initial_condition').notNull(),
   pit: text('pit').notNull().default(''),
   assignee: text('assignee').notNull().default(''),
+  diagnosis: text('diagnosis').notNull().default(''),
+  inspection: text('inspection').notNull().default(''),
+  notes: text('notes').notNull().default(''),
+  updatedBy: uuid('updated_by').references(() => admins.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   origin: text('origin').notNull(),
   receivedBy: uuid('received_by').notNull().references(() => admins.id),
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
   version: integer('version').notNull().default(1),
   idempotencyKey: uuid('idempotency_key').notNull().unique(),
   requestHash: text('request_hash').notNull(),
-}, t => [check('work_order_values', sql`${t.odometer} BETWEEN 0 AND 9999999 AND length(trim(${t.initialCondition})) BETWEEN 1 AND 2000 AND length(${t.pit}) <= 60 AND length(${t.assignee}) <= 100 AND ${t.version} > 0 AND ${t.origin} IN ('online','walk_in')`)])
+}, t => [check('work_order_values', sql`${t.odometer} BETWEEN 0 AND 9999999 AND length(trim(${t.initialCondition})) BETWEEN 1 AND 2000 AND length(${t.pit}) <= 60 AND length(${t.assignee}) <= 100 AND ${t.version} > 0 AND ${t.origin} IN ('online','walk_in')`),
+  check('work_order_notes', sql`length(${t.diagnosis}) <= 2000 AND length(${t.inspection}) <= 2000 AND length(${t.notes}) <= 4000`)])
+
+export const workOrderLines = appSchema.table('work_order_lines', {
+  workOrderId: uuid('work_order_id').notNull().references(() => workOrders.id),
+  position: integer('position').notNull(),
+  kind: text('kind').notNull(),
+  serviceId: uuid('service_id').references(() => services.id),
+  description: text('description').notNull(),
+  quantity: integer('quantity').notNull(),
+  unitPrice: integer('unit_price').notNull(),
+}, t => [unique('work_order_line_position').on(t.workOrderId, t.position),
+  check('work_order_line_values', sql`${t.position} BETWEEN 0 AND 99 AND ${t.kind} IN ('service','part') AND (${t.kind}='service')=(${t.serviceId} IS NOT NULL) AND length(trim(${t.description})) BETWEEN 1 AND 200 AND ${t.quantity} BETWEEN 1 AND 999 AND ${t.unitPrice} BETWEEN 0 AND 2147483647 AND ${t.quantity}::bigint*${t.unitPrice} <= 2147483647`)])
+
+export const workOrderChanges = appSchema.table('work_order_changes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workOrderId: uuid('work_order_id').notNull().references(() => workOrders.id),
+  version: integer('version').notNull(),
+  action: text('action').notNull(),
+  actorId: uuid('actor_id').notNull().references(() => admins.id),
+  reason: text('reason').notNull(),
+  before: jsonb('before').notNull(),
+  after: jsonb('after').notNull(),
+  idempotencyKey: uuid('idempotency_key').notNull().unique(),
+  requestHash: text('request_hash').notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [unique('work_order_change_version').on(t.workOrderId, t.version),
+  check('work_order_change_values', sql`${t.version} > 1 AND ${t.action} IN ('save','start','complete','rotate_tracking','revoke_tracking') AND length(trim(${t.reason})) BETWEEN 1 AND 500`)])
 
 export const trackingTokens = appSchema.table('tracking_tokens', {
   bookingId: uuid('booking_id').primaryKey().references(() => bookings.id),
@@ -216,7 +250,7 @@ export const notifications = appSchema.table('notifications', {
   status: text('status').notNull().default('queued'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('booking_notification_version').on(t.bookingId, t.bookingVersion, t.kind),
-  check('notification_target', sql`(${t.kind} = 'otp' AND ${t.challengeId} IS NOT NULL AND ${t.bookingId} IS NULL AND ${t.bookingVersion} IS NULL AND ${t.scheduledAt} IS NULL) OR (${t.kind} IN ('confirmation','reminder','received') AND ${t.challengeId} IS NULL AND ${t.bookingId} IS NOT NULL AND ${t.bookingVersion} IS NOT NULL AND ${t.bookingVersion} > 0 AND ${t.scheduledAt} IS NOT NULL)`),
+  check('notification_target', sql`(${t.kind} = 'otp' AND ${t.challengeId} IS NOT NULL AND ${t.bookingId} IS NULL AND ${t.bookingVersion} IS NULL AND ${t.scheduledAt} IS NULL) OR (${t.kind} IN ('confirmation','reminder','received','in_progress','completed') AND ${t.challengeId} IS NULL AND ${t.bookingId} IS NOT NULL AND ${t.bookingVersion} IS NOT NULL AND ${t.bookingVersion} > 0 AND ${t.scheduledAt} IS NOT NULL)`),
   check('notification_status', sql`${t.status} IN ('queued','retrying','sending','accepted','sent','delivered','read','failed','unknown','stale')`)])
 
 export const deliveryAttempts = appSchema.table('delivery_attempts', {

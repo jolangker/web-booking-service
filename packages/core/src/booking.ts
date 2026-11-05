@@ -41,7 +41,7 @@ export function assertBookingMutable(booking: { status: string, reservation_stat
   if (booking.scheduled_at.getTime() - now.getTime() < 120 * 60 * 1000) throw new DomainError(409, 'Ubah jadwal atau batal hanya tersedia minimal 120 menit sebelum jadwal aktif.')
 }
 const trackingKey = (env: Environment) => createHash('sha256').update(`booking-tracking:${env.otpSecret}`).digest()
-function sealToken(env: Environment, id: string, token: string) {
+export function sealTrackingToken(env: Environment, id: string, token: string) {
   const iv = randomBytes(12), cipher = createCipheriv('aes-256-gcm', trackingKey(env), iv)
   cipher.setAAD(Buffer.from(id))
   const bytes = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()])
@@ -109,7 +109,7 @@ export async function createBookingReservation(tx: PoolClient, runtime: Runtime,
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [id, customerId, input.vehicleId, input.slotId, code, input.idempotencyKey, requestHash, input.complaint, JSON.stringify(vehicle), total, minutes, slot.starts_at, reminderAt])
     for (const s of services) await tx.query('INSERT INTO app.booking_services(booking_id,service_id,name,price,duration_minutes) VALUES($1,$2,$3,$4,$5)', [id, s.id, s.name, s.price, s.duration_minutes])
     await tx.query("INSERT INTO app.booking_history(booking_id,version,status,scheduled_at) VALUES($1,1,'confirmed',$2)", [id, slot.starts_at])
-    await tx.query("INSERT INTO app.tracking_tokens(booking_id,token_hash,ciphertext,expires_at) VALUES($1,$2,$3,$4::timestamptz+interval '30 days')", [id, tokenHash(token), sealToken(env, id, token), slot.starts_at])
+    await tx.query("INSERT INTO app.tracking_tokens(booking_id,token_hash,ciphertext,expires_at) VALUES($1,$2,$3,$4::timestamptz+interval '30 days')", [id, tokenHash(token), sealTrackingToken(env, id, token), slot.starts_at])
     // Wrap the SAME PoolClient, inside its open transaction, using pg-boss's public Drizzle adapter.
     const db = fromDrizzle(drizzle(tx), sql)
     for (const kind of walkIn ? [] : ['confirmation', ...(reminderAt ? ['reminder'] : [])]) {
@@ -204,6 +204,10 @@ export async function trackBooking(database: Database, value: unknown) {
   const token = object(value).token
   if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw new DomainError(404, 'Tautan tracking tidak berlaku.')
   const { rows: [booking] } = await database.pool.query(`SELECT b.status,b.reservation_status AS "reservationStatus",b.scheduled_at AS "scheduledAt",
+    b.code,CASE WHEN length(b.vehicle_snapshot->>'plate')>3 THEN '***' || right(b.vehicle_snapshot->>'plate',3) ELSE '***' END AS "maskedPlate",
+    clock_timestamp() AS "fetchedAt",t.expires_at AS "expiresAt",
+    (SELECT max(h.occurred_at) FROM app.booking_history h WHERE h.booking_id=b.id) AS "updatedAt",
+    (b.status='collected' OR b.reservation_status='cancelled') AS terminal,
     (SELECT json_agg(json_build_object('status',h.status,'reservationStatus',h.reservation_status,'action',h.action,'scheduledAt',h.scheduled_at,'occurredAt',h.occurred_at) ORDER BY h.version) FROM app.booking_history h WHERE h.booking_id=b.id) AS history
     FROM app.bookings b JOIN app.tracking_tokens t ON t.booking_id=b.id WHERE t.token_hash=$1 AND t.expires_at>now() AND t.revoked_at IS NULL`, [tokenHash(token)])
   if (!booking) throw new DomainError(404, 'Tautan tracking tidak berlaku.')
