@@ -151,9 +151,9 @@ export async function receiveDeliveryEvent(database: Database, value: unknown) {
 }
 export async function deliveryLog(database: Database) {
   return { notifications: (await database.pool.query(`SELECT n.id,n.queue_job_id AS "queueJobId",n.status,n.created_at AS "createdAt",
-    c.id AS "challengeId",COALESCE(c.purpose,n.kind) AS purpose,b.code AS "bookingCode",'+62••••' || right(COALESCE(c.phone,customer.phone),4) AS recipient,
+    c.id AS "challengeId",COALESCE(c.purpose,n.kind) AS purpose,b.code AS "bookingCode",i.number AS "invoiceNumber",'+62••••' || right(COALESCE(n.recipient_phone,c.phone,customer.phone),4) AS recipient,
     COALESCE((SELECT json_agg(json_build_object('id',a.id,'outcome',a.outcome,'httpStatus',a.http_status,'messageRef',md5(a.message_id),'startedAt',a.started_at,'finishedAt',a.finished_at) ORDER BY a.started_at)
       FROM app.delivery_attempts a WHERE a.notification_id=n.id),'[]') AS attempts
     FROM app.notifications n LEFT JOIN app.otp_challenges c ON c.id=n.challenge_id
-    LEFT JOIN app.bookings b ON b.id=n.booking_id LEFT JOIN app.customers customer ON customer.id=b.customer_id ORDER BY n.created_at DESC LIMIT 50`)).rows }
+    LEFT JOIN app.bookings b ON b.id=n.booking_id LEFT JOIN app.invoices i ON i.id=n.invoice_id LEFT JOIN app.customers customer ON customer.id=b.customer_id ORDER BY n.created_at DESC LIMIT 50`)).rows }
 }

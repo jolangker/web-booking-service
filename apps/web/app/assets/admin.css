@@ -73,6 +73,8 @@
 .reception-walk-in { max-width: 760px; }
 .reception .customer-list button[aria-current] small { color: #e0f1f2; }
 .cost-line { margin-bottom: .75rem; }
+.invoice-detail, .customer-account .panel { overflow-wrap: anywhere; }
+.invoice-line { display: flex; flex-direction: column; gap: .3rem; padding: .75rem 0; border-bottom: 1px solid #d8e1e5; }
 .audit-json { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
 @media (max-width: 950px) { .admin .admin-columns { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .admin-dashboard { margin: 0 auto; padding: 1rem; } .admin .week-grid { grid-template-columns: 1fr; } .admin-login { margin: 2rem 1rem; } }

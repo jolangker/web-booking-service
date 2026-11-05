@@ -35,8 +35,8 @@ async function verifiedFile(env: Environment, invoice: Awaited<ReturnType<typeof
   if (data.length !== invoice.fileSize || checksum(data) !== invoice.fileHash) throw new Error('Invoice file integrity failed')
   return data
 }
-export async function invoiceFile(database: Database, env: Environment, id: unknown) {
-  const invoice = await transaction(database, tx => readInvoice(tx, uuid(id)))
+export async function invoiceFile(database: Database, env: Environment, id: unknown, tx?: PoolClient) {
+  const invoice = tx ? await readInvoice(tx, uuid(id)) : await transaction(database, client => readInvoice(client, uuid(id)))
   if (invoice.status !== 'ready') throw new DomainError(409, 'Pembayaran LUNAS; PDF belum siap. Periksa status penerbitan.')
   try { return { number: invoice.number, data: await verifiedFile(env, invoice) } }
   catch { throw new DomainError(503, 'Arsip PDF tidak tersedia. Admin dapat menerbitkan ulang dari snapshot yang sama.') }

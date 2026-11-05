@@ -1,4 +1,4 @@
-import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceFile, listCashier, listWorkOrders, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, settlePayment, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
+import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceDeliveries, invoiceFile, listCashier, listWorkOrders, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, sendInvoice, settlePayment, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, sessionCookie } from '../../utils/admin'
 import { environment, runtime } from '../../utils/runtime'
 
@@ -9,6 +9,9 @@ export default defineEventHandler(event => adminOperation(async () => {
   const payment = /^work-orders\/([0-9a-f-]+)\/payment$/.exec(path)
   if (payment && method === 'GET') return { payment: await getPayment(runtime, payment[1]) }
   if (payment && method === 'POST') return settlePayment(runtime, environment, event.context.admin.id, payment[1], await adminBody(event))
+  const delivery = /^invoices\/([0-9a-f-]+)\/deliveries$/.exec(path)
+  if (delivery && method === 'GET') return invoiceDeliveries(runtime, delivery[1])
+  if (delivery && method === 'POST') return sendInvoice(runtime, environment, event.context.admin.id, delivery[1], await adminBody(event))
   const invoice = /^invoices\/([0-9a-f-]+)(?:\/(file|retry))?$/.exec(path)
   if (invoice && !invoice[2] && method === 'GET') return getInvoice(runtime, invoice[1])
   if (invoice && invoice[2] === 'retry' && method === 'POST') { await adminBody(event); return retryInvoice(runtime, environment, invoice[1]) }

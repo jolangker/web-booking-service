@@ -14,6 +14,7 @@ export const DEMO_QUEUE = 'development-example'
 export const OTP_QUEUE = 'customer-otp'
 export const BOOKING_QUEUE = 'booking-messages'
 export const INVOICE_QUEUE = 'invoice-pdf'
+export const INVOICE_DELIVERY_QUEUE = 'invoice-delivery'
 
 export function createDatabase(connectionString: string) {
   const pool = new pg.Pool({

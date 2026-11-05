@@ -15,6 +15,8 @@ export * from './reception.js'
 export * from './progress.js'
 export * from './payment.js'
 export * from './invoice.js'
+export * from './history.js'
+export * from './invoice-delivery.js'
 
 export function authorized(token: string | undefined, expected: string) {
   if (!token) return false

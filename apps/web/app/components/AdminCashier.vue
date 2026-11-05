@@ -91,6 +91,7 @@ onBeforeUnmount(() => clearInterval(polling))
           <div v-if="payment.pdfStatus === 'ready'" class="actions"><a data-invoice-view :href="`/api/admin/invoices/${payment.invoiceId}/file`" target="_blank" rel="noopener">Lihat / cetak PDF</a><a :href="`/api/admin/invoices/${payment.invoiceId}/file?download=1`">Unduh PDF</a></div>
           <p v-if="payment.pdfStatus === 'ready'" class="muted">Buka PDF dan gunakan tombol cetak browser untuk kertas A4. Jika arsip hilang / rusak, terbitkan ulang dari snapshot.</p>
           <div class="actions section-actions"><button :disabled="busy" @click="refreshPayment">Perbarui status PDF</button><button data-retry-pdf :disabled="busy" @click="retryPdf">{{ payment.pdfStatus === 'ready' ? 'Pulihkan arsip PDF yang hilang / rusak' : 'Coba lagi penerbitan PDF' }}</button></div>
+          <InvoiceDelivery :key="payment.invoiceId" :invoice-id="payment.invoiceId" :ready="payment.pdfStatus === 'ready'" />
         </section>
         <form v-else-if="detail.workOrder.status === 'completed'" ref="form" @submit.prevent="settle">
           <fieldset :disabled="busy || Boolean(pending)">

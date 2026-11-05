@@ -15,6 +15,7 @@ async function logout() {
     sessionStorage.removeItem('reception-check-in'); sessionStorage.removeItem('reception-walk-in')
     sessionStorage.removeItem('work-order-mutation')
     sessionStorage.removeItem('cashier-payment')
+    for (const key of Object.keys(sessionStorage)) if (key.startsWith('invoice-delivery:')) sessionStorage.removeItem(key)
     await navigateTo('/admin/login')
   } catch (e) { error.value = adminError(e) }
   finally { busy.value = false }

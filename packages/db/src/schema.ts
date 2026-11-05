@@ -298,6 +298,10 @@ export const trackingTokens = appSchema.table('tracking_tokens', {
 export const notifications = appSchema.table('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
   challengeId: uuid('challenge_id').unique().references(() => otpChallenges.id),
+  invoiceId: uuid('invoice_id').references(() => invoices.id),
+  requestKey: uuid('request_key').unique(),
+  requestedBy: uuid('requested_by').references(() => admins.id),
+  recipientPhone: text('recipient_phone'),
   bookingId: uuid('booking_id').references(() => bookings.id),
   bookingVersion: integer('booking_version'),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
@@ -306,7 +310,8 @@ export const notifications = appSchema.table('notifications', {
   status: text('status').notNull().default('queued'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('booking_notification_version').on(t.bookingId, t.bookingVersion, t.kind),
-  check('notification_target', sql`(${t.kind} = 'otp' AND ${t.challengeId} IS NOT NULL AND ${t.bookingId} IS NULL AND ${t.bookingVersion} IS NULL AND ${t.scheduledAt} IS NULL) OR (${t.kind} IN ('confirmation','reminder','received','in_progress','completed') AND ${t.challengeId} IS NULL AND ${t.bookingId} IS NOT NULL AND ${t.bookingVersion} IS NOT NULL AND ${t.bookingVersion} > 0 AND ${t.scheduledAt} IS NOT NULL)`),
+  index('invoice_delivery_created').on(t.invoiceId, t.createdAt),
+  check('notification_target', sql`((${t.kind} = 'otp' AND ${t.challengeId} IS NOT NULL AND ${t.bookingId} IS NULL AND ${t.bookingVersion} IS NULL AND ${t.scheduledAt} IS NULL) OR (${t.kind} IN ('confirmation','reminder','received','in_progress','completed') AND ${t.challengeId} IS NULL AND ${t.bookingId} IS NOT NULL AND ${t.bookingVersion} IS NOT NULL AND ${t.bookingVersion} > 0 AND ${t.scheduledAt} IS NOT NULL)) AND ${t.invoiceId} IS NULL AND ${t.requestKey} IS NULL AND ${t.requestedBy} IS NULL AND ${t.recipientPhone} IS NULL OR (${t.kind}='invoice' AND ${t.invoiceId} IS NOT NULL AND ${t.requestKey} IS NOT NULL AND ${t.requestedBy} IS NOT NULL AND ${t.recipientPhone} ~ '^[+]628[0-9]{8,11}$' AND ${t.recipientPhone} IS NOT NULL AND ${t.challengeId} IS NULL AND ${t.bookingId} IS NULL AND ${t.bookingVersion} IS NULL AND ${t.scheduledAt} IS NULL)`),
   check('notification_status', sql`${t.status} IN ('queued','retrying','sending','accepted','sent','delivered','read','failed','unknown','stale')`)])
 
 export const deliveryAttempts = appSchema.table('delivery_attempts', {
