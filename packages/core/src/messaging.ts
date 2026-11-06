@@ -52,6 +52,15 @@ export async function startGatewayPairing(env: Environment) {
   } catch { throw new DomainError(503, 'WhatsApp belum dapat dihubungkan. Periksa gateway lalu coba lagi.') }
 }
 
+export async function unpairGateway(env: Environment) {
+  try {
+    // Logout removes the linked account; stopping alone retains its credentials.
+    const response = await gatewayFetch(env, '/api/sessions/default/logout', {})
+    if (!response.ok && response.status !== 404) throw new Error('Logout unavailable')
+    return gatewayStatus(env)
+  } catch { throw new DomainError(503, 'WhatsApp belum dapat diputuskan. Periksa status koneksi lalu coba lagi.') }
+}
+
 export async function gatewayPairingQr(env: Environment) {
   try {
     const response = await fetch(new URL('/api/default/auth/qr?format=image', env.wahaBaseUrl), {

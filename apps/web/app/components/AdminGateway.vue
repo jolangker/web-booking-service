@@ -2,6 +2,7 @@
 const gateway = ref<{ status: string, checkedAt: string }>(), error = ref(''), busy = ref(false)
 const { request } = useAdmin()
 const pairing = ref(false), pairingError = ref(''), qrUrl = ref(''), polling = ref(false)
+const confirmUnpair = ref(false), success = ref('')
 let timer: ReturnType<typeof setInterval> | undefined, disposed = false
 const notifications = ref<{ id: string, queueJobId: string, status: string, recipient: string, purpose: string, bookingCode: string | null, invoiceNumber: string | null, createdAt: string, attempts: { id: string, outcome: string, httpStatus: number | null }[] }[]>([])
 function clearQr() {
@@ -25,7 +26,7 @@ async function readGateway() {
 }
 async function pair() {
   if (busy.value || polling.value) return
-  busy.value = true; pairingError.value = ''; pairing.value = true; clearQr()
+  busy.value = true; pairingError.value = ''; success.value = ''; confirmUnpair.value = false; pairing.value = true; clearQr()
   try {
     const result = await request<{ status: string, checkedAt: string }>('/api/admin/gateway/pair', 'POST', {})
     if (disposed) return
@@ -33,7 +34,19 @@ async function pair() {
   } catch (e) { pairingError.value = adminError(e) }
   finally { busy.value = false }
 }
+async function unpair() {
+  if (busy.value || polling.value || !confirmUnpair.value) return
+  busy.value = true; pairingError.value = ''; success.value = ''; pairing.value = false; clearQr()
+  try {
+    const result = await request<{ status: string, checkedAt: string }>('/api/admin/gateway/unpair', 'POST', {})
+    if (disposed) return
+    gateway.value = result; confirmUnpair.value = false
+    success.value = 'WhatsApp berhasil diputuskan. Pilih Hubungkan WhatsApp (pair) untuk menautkan kembali perangkat.'
+  } catch (e) { pairingError.value = adminError(e) }
+  finally { busy.value = false }
+}
 async function load() {
+  if (busy.value || polling.value) return
   busy.value = true; error.value = ''
   const results = await Promise.allSettled([
     readGateway(),
@@ -59,10 +72,26 @@ onBeforeUnmount(() => { disposed = true; clearInterval(timer); clearQr() })
 
 <template>
   <section class="panel">
-    <div class="admin-header"><h2>WhatsApp gateway</h2><div class="actions"><button v-if="gateway?.status !== 'WORKING'" data-gateway-pair :disabled="busy || polling || gateway?.status === 'STARTING'" @click="pair">{{ pairing ? 'Tampilkan QR baru' : 'Hubungkan WhatsApp' }}</button><button :disabled="busy || polling" @click="load">{{ busy ? 'Memuat…' : 'Baca status terbaru' }}</button></div></div>
+    <div class="admin-header">
+      <h2>Koneksi WhatsApp / WAHA</h2>
+      <div class="actions">
+        <button v-if="gateway?.status !== 'WORKING'" class="primary" data-gateway-pair :disabled="busy || polling || confirmUnpair || gateway?.status === 'STARTING'" @click="pair">{{ pairing ? 'Tampilkan QR baru' : 'Hubungkan WhatsApp (pair)' }}</button>
+        <button data-gateway-unpair :disabled="busy || polling || confirmUnpair || !gateway || gateway.status === 'UNAVAILABLE'" @click="confirmUnpair = true; success = ''">Putuskan koneksi (unpair)</button>
+        <button :disabled="busy || polling" @click="load">{{ busy ? 'Memproses…' : 'Baca status terbaru' }}</button>
+      </div>
+    </div>
     <p v-if="error" role="alert" class="notice error">{{ error }}</p>
+    <p v-if="success" role="status" class="notice success">{{ success }}</p>
     <p v-if="gateway" role="status">Sesi default: <strong>{{ gateway.status }}</strong> · Diperiksa {{ new Date(gateway.checkedAt).toLocaleString('id-ID') }}</p>
     <p v-if="pairingError" role="alert" class="notice error">{{ pairingError }}</p>
+    <div v-if="confirmUnpair" class="notice" data-gateway-unpair-confirm aria-labelledby="gateway-unpair-title">
+      <h3 id="gateway-unpair-title">Putuskan koneksi WhatsApp?</h3>
+      <p>Perangkat akan dilepas dari WhatsApp bengkel. Pengiriman OTP dan notifikasi WhatsApp tidak dapat berjalan sampai Admin melakukan pair kembali.</p>
+      <div class="actions">
+        <button :disabled="busy" @click="confirmUnpair = false">Batal</button>
+        <button data-gateway-unpair-submit :disabled="busy || polling" @click="unpair">{{ busy ? 'Memutuskan…' : 'Ya, putuskan koneksi' }}</button>
+      </div>
+    </div>
     <div v-if="pairing" class="section-actions" data-gateway-pairing>
       <p v-if="qrUrl">Di HP buka <strong>WhatsApp → Perangkat tertaut → Tautkan perangkat</strong>, lalu scan QR ini.</p>
       <img v-if="qrUrl" data-gateway-qr :src="qrUrl" class="gateway-qr" alt="QR untuk menghubungkan WhatsApp bengkel">

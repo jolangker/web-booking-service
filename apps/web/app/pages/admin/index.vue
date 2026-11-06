@@ -17,7 +17,7 @@ const navigation = [
     { id: 'services', label: 'Layanan', icon: 'sliders-horizontal', description: 'Atur layanan, tarif, dan estimasi durasi pengerjaan.' },
     { id: 'calendar', label: 'Jam & hari libur', icon: 'calendar-days', description: 'Atur jadwal mingguan, waktu istirahat, dan pengecualian tanggal.' },
     { id: 'slots', label: 'Slot & kuota', icon: 'clock', description: 'Periksa slot dan kelola kapasitas kedatangan.' },
-    { id: 'gateway', label: 'WhatsApp', icon: 'message-circle', description: 'Kelola koneksi WhatsApp dan status pengiriman notifikasi.' },
+    { id: 'gateway', label: 'WhatsApp / WAHA', icon: 'message-circle', description: 'Hubungkan (pair) atau putuskan (unpair) WhatsApp bengkel dan periksa pengiriman notifikasi.' },
   ] },
 ]
 const currentPage = computed(() => navigation.flatMap(group => group.items).find(item => item.id === tab.value) ?? navigation[0]!.items[0]!)

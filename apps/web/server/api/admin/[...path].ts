@@ -1,4 +1,4 @@
-import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayPairingQr, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceDeliveries, invoiceFile, listCashier, listWorkOrders, operationalReport, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, sendInvoice, settlePayment, startGatewayPairing, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
+import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayPairingQr, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceDeliveries, invoiceFile, listCashier, listWorkOrders, operationalReport, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, sendInvoice, settlePayment, startGatewayPairing, tokenHash, unpairGateway, updateWorkOrder, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, sessionCookie } from '../../utils/admin'
 import { environment, runtime } from '../../utils/runtime'
 
@@ -50,6 +50,7 @@ export default defineEventHandler(event => adminOperation(async () => {
   }
   if (path === 'gateway' && method === 'GET') return gatewayStatus(environment)
   if (path === 'gateway/pair' && method === 'POST') { await adminBody(event); return startGatewayPairing(environment) }
+  if (path === 'gateway/unpair' && method === 'POST') { await adminBody(event); return unpairGateway(environment) }
   if (path === 'gateway/qr' && method === 'GET') {
     const image = await gatewayPairingQr(environment)
     setHeader(event, 'Content-Type', 'image/png')
