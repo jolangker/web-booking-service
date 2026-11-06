@@ -9,6 +9,15 @@ export * from './admin.js'
 export * from './workshop.js'
 export * from './customer.js'
 export * from './messaging.js'
+export * from './booking.js'
+export * from './booking-messaging.js'
+export * from './reception.js'
+export * from './progress.js'
+export * from './payment.js'
+export * from './invoice.js'
+export * from './history.js'
+export * from './invoice-delivery.js'
+export * from './reports.js'
 
 export function authorized(token: string | undefined, expected: string) {
   if (!token) return false

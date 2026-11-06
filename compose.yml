@@ -1,0 +1,93 @@
+name: booking-service
+
+x-runtime: &runtime
+  APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN}
+  DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB}
+  HEALTH_TOKEN: ${HEALTH_TOKEN:?Set HEALTH_TOKEN}
+  WAHA_API_KEY: ${WAHA_API_KEY:?Set WAHA_API_KEY}
+  OTP_SECRET: ${OTP_SECRET:?Set OTP_SECRET}
+  WAHA_WEBHOOK_SECRET: ${WAHA_WEBHOOK_SECRET:?Set WAHA_WEBHOOK_SECRET}
+  WAHA_BASE_URL: http://waha:3000
+  INVOICE_STORAGE_PATH: /app/storage/invoices
+  WORKSHOP_NAME: ${WORKSHOP_NAME:?Set WORKSHOP_NAME}
+  WORKSHOP_ADDRESS: ${WORKSHOP_ADDRESS:?Set WORKSHOP_ADDRESS}
+  WORKSHOP_PHONE: ${WORKSHOP_PHONE:?Set WORKSHOP_PHONE}
+
+services:
+  web:
+    build: { context: ., dockerfile: Dockerfile.web }
+    restart: unless-stopped
+    environment: *runtime
+    ports: ["127.0.0.1:3000:3000"]
+    volumes: ["invoices:/app/storage/invoices:ro"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready',{headers:{'x-runtime-token':process.env.HEALTH_TOKEN}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 8s
+      retries: 10
+      start_period: 20s
+
+  worker:
+    build: { context: ., dockerfile: Dockerfile.worker }
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 25s
+    environment:
+      <<: *runtime
+      WORKER_HEALTH_HOST: 0.0.0.0
+      WORKER_HEALTH_PORT: "3002"
+    volumes: ["invoices:/app/storage/invoices"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health/ready',{headers:{'x-runtime-token':process.env.HEALTH_TOKEN}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 8s
+      retries: 10
+
+  postgres:
+    image: postgres:17.11-bookworm@sha256:839fbb5a4942a7758dd93e18b42ea5649807491a0545b5eeeb8f0b8bb11857a5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    ports: ["127.0.0.1:54329:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  waha:
+    image: devlikeapro/waha:noweb-2026.10.1@sha256:0d64cce14a922f61bb9a620474086d1f5695f2522e7e1088704e6eca3a085d0c
+    restart: unless-stopped
+    environment:
+      WAHA_API_KEY: ${WAHA_API_KEY:?Set WAHA_API_KEY}
+      WAHA_DASHBOARD_ENABLED: "false"
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WHATSAPP_RESTART_ALL_SESSIONS: "true"
+      WHATSAPP_HOOK_URL: http://web:3000/api/webhooks/waha
+      WHATSAPP_HOOK_EVENTS: message.ack
+      WHATSAPP_HOOK_HMAC_KEY: ${WAHA_WEBHOOK_SECRET:?Set WAHA_WEBHOOK_SECRET}
+      WHATSAPP_HOOK_RETRIES_POLICY: exponential
+      WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: "2"
+      WHATSAPP_HOOK_RETRIES_ATTEMPTS: "8"
+      WAHA_LOG_LEVEL: warn
+    ports: ["127.0.0.1:3001:3000"]
+    volumes: ["waha_sessions:/app/.sessions"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/sessions',{headers:{'X-Api-Key':process.env.WAHA_API_KEY}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  waha_sessions:
+  invoices:

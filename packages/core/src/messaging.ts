@@ -4,7 +4,7 @@ import type { Environment } from './env.js'
 import { decryptOtp, uuid } from './customer.js'
 import { DomainError, object, text, transaction } from './workshop.js'
 
-async function gatewayFetch(env: Environment, path: string, body?: unknown) {
+export async function gatewayFetch(env: Environment, path: string, body?: unknown) {
   return fetch(new URL(path, env.wahaBaseUrl), {
     method: body ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(8000),
     headers: { 'X-Api-Key': env.wahaApiKey, 'Content-Type': 'application/json' },
@@ -30,9 +30,52 @@ export async function gatewayStatus(env: Environment) {
     const response = await gatewayFetch(env, '/api/sessions/default')
     if (!response.ok) return { status: 'UNAVAILABLE', checkedAt: new Date().toISOString() }
     const data = object(await response.json())
-    const status = typeof data.status === 'string' && ['WORKING', 'STOPPED', 'STARTING', 'SCAN_QR_CODE', 'FAILED'].includes(data.status) ? data.status : 'UNAVAILABLE'
+    const status = typeof data.status === 'string' && ['WORKING', 'STOPPED', 'STARTING', 'SCAN_QR_CODE', 'FAILED', 'PASSKEY_REQUIRED', 'PASSKEY_CONFIRMATION_REQUIRED'].includes(data.status) ? data.status : 'UNAVAILABLE'
     return { status, checkedAt: new Date().toISOString() }
   } catch { return { status: 'UNAVAILABLE', checkedAt: new Date().toISOString() } }
+}
+
+export async function startGatewayPairing(env: Environment) {
+  try {
+    const existing = await gatewayFetch(env, '/api/sessions/default')
+    let path: string | undefined, body: object = {}
+    if (existing.status === 404) { path = '/api/sessions'; body = { name: 'default', start: true } }
+    else {
+      if (!existing.ok) throw new Error('Gateway unavailable')
+      const session = object(await existing.json())
+      if (session.status === 'STOPPED') path = '/api/sessions/default/start'
+      if (session.status === 'FAILED') path = '/api/sessions/default/restart'
+      // Reading a QR must never restart an active or already connected session.
+    }
+    if (path && !(await gatewayFetch(env, path, body)).ok) throw new Error('Pairing unavailable')
+    return gatewayStatus(env)
+  } catch { throw new DomainError(503, 'WhatsApp belum dapat dihubungkan. Periksa gateway lalu coba lagi.') }
+}
+
+export async function unpairGateway(env: Environment) {
+  try {
+    // Logout removes the linked account; stopping alone retains its credentials.
+    const response = await gatewayFetch(env, '/api/sessions/default/logout', {})
+    if (!response.ok && response.status !== 404) throw new Error('Logout unavailable')
+    return gatewayStatus(env)
+  } catch { throw new DomainError(503, 'WhatsApp belum dapat diputuskan. Periksa status koneksi lalu coba lagi.') }
+}
+
+export async function gatewayPairingQr(env: Environment) {
+  try {
+    const response = await fetch(new URL('/api/default/auth/qr?format=image', env.wahaBaseUrl), {
+      headers: { 'X-Api-Key': env.wahaApiKey, Accept: 'image/png' },
+      redirect: 'error', signal: AbortSignal.timeout(8000),
+    })
+    if ([404, 409, 422].includes(response.status)) throw new DomainError(409, 'QR belum tersedia atau sudah berubah. Perbarui status WhatsApp.')
+    if (!response.ok || !response.headers.get('content-type')?.toLowerCase().startsWith('image/png')) throw new Error('QR unavailable')
+    const data = Buffer.from(await response.arrayBuffer())
+    if (data.length > 1048576 || !data.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) throw new Error('Invalid QR image')
+    return data
+  } catch (error) {
+    if (error instanceof DomainError) throw error
+    throw new DomainError(503, 'QR WhatsApp belum dapat dibaca. Coba lagi sebentar.')
+  }
 }
 
 // Called periodically by the worker even when the queue is empty or the gateway is down.
@@ -46,10 +89,11 @@ export async function expireOtpPayloads(database: Database) {
     await tx.query("DELETE FROM app.delivery_events WHERE received_at<now()-interval '7 days'")
     await tx.query("UPDATE app.delivery_attempts SET outcome='unknown',finished_at=now() WHERE outcome='started' AND started_at<now()-interval '30 seconds'")
     await tx.query("UPDATE app.notifications n SET status='unknown' WHERE status='sending' AND EXISTS (SELECT 1 FROM app.delivery_attempts a WHERE a.notification_id=n.id AND a.outcome='unknown')")
+    await tx.query("UPDATE app.notifications n SET status='failed' FROM queue.job j WHERE n.queue_job_id=j.id AND j.state='failed' AND n.status IN ('queued','retrying')")
   })
 }
 
-const deliveryStateSql = `CASE WHEN EXISTS(SELECT 1 FROM app.delivery_events e JOIN app.delivery_attempts a ON a.message_id=e.message_id WHERE a.notification_id=n.id AND e.ack>=3) THEN 'read'
+export const deliveryStateSql = `CASE WHEN EXISTS(SELECT 1 FROM app.delivery_events e JOIN app.delivery_attempts a ON a.message_id=e.message_id WHERE a.notification_id=n.id AND e.ack>=3) THEN 'read'
   WHEN EXISTS(SELECT 1 FROM app.delivery_events e JOIN app.delivery_attempts a ON a.message_id=e.message_id WHERE a.notification_id=n.id AND e.ack=2) THEN 'delivered'
   WHEN EXISTS(SELECT 1 FROM app.delivery_events e JOIN app.delivery_attempts a ON a.message_id=e.message_id WHERE a.notification_id=n.id AND e.ack=1) THEN 'sent'
   WHEN EXISTS(SELECT 1 FROM app.delivery_events e JOIN app.delivery_attempts a ON a.message_id=e.message_id WHERE a.notification_id=n.id AND e.ack=-1) THEN 'failed' ELSE n.status END`
@@ -87,9 +131,9 @@ export async function dispatchOtp(database: Database, env: Environment, challeng
       await tx.query('COMMIT'); return
     }
     await tx.query('INSERT INTO app.gateway_dispatch(id) VALUES(1) ON CONFLICT DO NOTHING')
-    const { rows: [gate] } = await tx.query('SELECT next_at<=now() AS ready FROM app.gateway_dispatch WHERE id=1 FOR UPDATE')
+    const { rows: [gate] } = await tx.query('SELECT next_at<=clock_timestamp() AS ready FROM app.gateway_dispatch WHERE id=1 FOR UPDATE')
     if (!gate.ready) throw new Error('OTP dispatch rate limited')
-    await tx.query("UPDATE app.gateway_dispatch SET next_at=now()+interval '1 second' WHERE id=1")
+    await tx.query("UPDATE app.gateway_dispatch SET next_at=clock_timestamp()+interval '1 second' WHERE id=1")
     const code = decryptOtp(env.otpSecret, c.id, c.ciphertext)
     const { rows: [attempt] } = await tx.query("INSERT INTO app.delivery_attempts(notification_id,outcome) VALUES($1,'started') RETURNING id", [c.notification_id])
     await tx.query("UPDATE app.notifications SET status='sending' WHERE id=$1", [c.notification_id])
@@ -150,8 +194,9 @@ export async function receiveDeliveryEvent(database: Database, value: unknown) {
 }
 export async function deliveryLog(database: Database) {
   return { notifications: (await database.pool.query(`SELECT n.id,n.queue_job_id AS "queueJobId",n.status,n.created_at AS "createdAt",
-    c.id AS "challengeId",c.purpose,'+62••••' || right(c.phone,4) AS recipient,
+    c.id AS "challengeId",COALESCE(c.purpose,n.kind) AS purpose,b.code AS "bookingCode",i.number AS "invoiceNumber",'+62••••' || right(COALESCE(n.recipient_phone,c.phone,customer.phone),4) AS recipient,
     COALESCE((SELECT json_agg(json_build_object('id',a.id,'outcome',a.outcome,'httpStatus',a.http_status,'messageRef',md5(a.message_id),'startedAt',a.started_at,'finishedAt',a.finished_at) ORDER BY a.started_at)
       FROM app.delivery_attempts a WHERE a.notification_id=n.id),'[]') AS attempts
-    FROM app.notifications n JOIN app.otp_challenges c ON c.id=n.challenge_id ORDER BY n.created_at DESC LIMIT 50`)).rows }
+    FROM app.notifications n LEFT JOIN app.otp_challenges c ON c.id=n.challenge_id
+    LEFT JOIN app.bookings b ON b.id=n.booking_id LEFT JOIN app.invoices i ON i.id=n.invoice_id LEFT JOIN app.customers customer ON customer.id=b.customer_id ORDER BY n.created_at DESC LIMIT 50`)).rows }
 }

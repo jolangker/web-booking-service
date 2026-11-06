@@ -1,0 +1,2 @@
+CREATE INDEX "booking_report_check_in" ON "app"."bookings" USING btree ("checked_in_at","id") WHERE "app"."bookings"."reservation_status" = 'active' AND "app"."bookings"."checked_in_at" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "payment_report_paid_at" ON "app"."payments" USING btree ("paid_at","id");

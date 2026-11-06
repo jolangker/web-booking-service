@@ -35,7 +35,7 @@ async function contactVerified() {
 </script>
 
 <template>
-  <section class="panel">
+  <section class="panel customer-editor">
     <h2>Profil pelanggan</h2>
     <p v-if="error" role="alert" class="notice error">{{ error }} <button :disabled="busy" @click="error = ''; load()">Muat ulang</button></p>
     <p v-if="notice" role="status" class="notice success">{{ notice }}</p>

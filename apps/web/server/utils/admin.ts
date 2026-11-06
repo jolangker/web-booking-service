@@ -3,9 +3,9 @@ import { authorized, DomainError } from '@booking/core'
 import type { H3Event } from 'h3'
 import { environment } from './runtime'
 
-export const sessionCookie = environment.appEnv === 'development' ? 'booking_admin' : '__Host-booking_admin'
-export const csrfCookie = environment.appEnv === 'development' ? 'booking_login_csrf' : '__Host-booking_login_csrf'
-export const cookieOptions = { httpOnly: true, secure: environment.appEnv !== 'development', sameSite: 'strict' as const, path: '/' }
+export const sessionCookie = environment.secureCookies ? '__Host-booking_admin' : 'booking_admin'
+export const csrfCookie = environment.secureCookies ? '__Host-booking_login_csrf' : 'booking_login_csrf'
+export const cookieOptions = { httpOnly: true, secure: environment.secureCookies, sameSite: 'strict' as const, path: '/' }
 export function checkOrigin(event: H3Event) {
   if (getHeader(event, 'origin') !== environment.appOrigin) throw createError({ statusCode: 403, statusMessage: 'Origin ditolak.' })
   if (!getHeader(event, 'content-type')?.startsWith('application/json')) throw createError({ statusCode: 415, statusMessage: 'Gunakan application/json.' })

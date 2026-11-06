@@ -1,11 +1,14 @@
 import { createServer } from 'node:http'
-import { authorized, createRuntime, dispatchOtp, expireOtpPayloads, OTP_QUEUE, readEnvironment } from '@booking/core'
+import { authorized, BOOKING_QUEUE, createRuntime, dispatchBooking, dispatchInvoice, dispatchOtp, expireOtpPayloads, INVOICE_DELIVERY_QUEUE, INVOICE_QUEUE, issueInvoice, OTP_QUEUE, readEnvironment } from '@booking/core'
+import type { BookingMessage } from '@booking/core'
 import { checkDatabase, DEMO_QUEUE } from '@booking/db'
+import { renderInvoice } from './pdf.ts'
 
 const env = readEnvironment()
 const runtime = createRuntime(env, 'worker')
 let ready = false
 let stopping = false
+let heartbeatAt = Date.now()
 let maintenance: ReturnType<typeof setInterval> | undefined
 const log = (event: string, fields = {}) => console.log(JSON.stringify({ event, ...fields }))
 const server = createServer(async (request, response) => {
@@ -22,8 +25,9 @@ const server = createServer(async (request, response) => {
   }
   try {
     if (!ready || stopping) throw new Error('Worker not ready')
+    if (Date.now() - heartbeatAt > 90000) throw new Error('Worker maintenance stale')
     await checkDatabase(runtime)
-    response.end('{"status":"ready"}')
+    response.end(JSON.stringify({ status: 'ready', heartbeatAt: new Date(heartbeatAt).toISOString() }))
   } catch {
     response.statusCode = 503
     response.end('{"status":"unavailable"}')
@@ -62,11 +66,20 @@ try {
   await runtime.boss.work<{ challengeId: string }>(OTP_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
     await dispatchOtp(runtime, env, job!.data.challengeId, job!.id)
   })
+  await runtime.boss.work<BookingMessage>(BOOKING_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
+    await dispatchBooking(runtime, env, job!.data, job!.id)
+  })
+  await runtime.boss.work<{ invoiceId: string }>(INVOICE_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
+    await issueInvoice(runtime, env, job!.data.invoiceId, job!.id, renderInvoice)
+  })
+  await runtime.boss.work<{ notificationId: string }>(INVOICE_DELIVERY_QUEUE, { pollingIntervalSeconds: 1, localConcurrency: 1 }, async ([job]) => {
+    await dispatchInvoice(runtime, env, job!.data.notificationId, job!.id)
+  })
   let cleaning = false
   maintenance = setInterval(async () => {
     if (cleaning || stopping) return
     cleaning = true
-    try { await expireOtpPayloads(runtime) }
+    try { await expireOtpPayloads(runtime); heartbeatAt = Date.now() }
     catch { log('otp.maintenance_failed') }
     finally { cleaning = false }
   }, 30000)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Calendar } from '@booking/core'
-interface Conflict { slotId: string, date: string, startMinute: number, reserved: number, reason: string }
+interface Conflict { slotId: string, date: string, startMinute: number, reserved: number, reason: string, bookings: { code: string, status: string }[] }
 interface Preview { conflicts: Conflict[], slots: { date: string, startMinute: number, endMinute: number, quota: number }[], from: string, to: string }
 const { request } = useAdmin()
 const calendar = ref<Calendar>(), loading = ref(true), busy = ref(false), error = ref(''), message = ref(''), preview = ref<Preview>()
@@ -91,7 +91,7 @@ const time = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${St
       </div>
       <div v-if="preview" class="panel section-actions" aria-live="polite">
         <h3>Preview perubahan · {{ preview.from }} s.d. {{ preview.to }}</h3>
-        <div v-if="preview.conflicts.length" class="notice error"><p>Perubahan ditolak. Selesaikan reservasi yang konflik terlebih dahulu.</p><ul><li v-for="c in preview.conflicts" :key="c.slotId">{{ c.date }} {{ time(c.startMinute) }} · {{ c.reserved }} reservasi: {{ c.reason }}</li></ul></div>
+        <div v-if="preview.conflicts.length" class="notice error"><p>Perubahan ditolak. Selesaikan reservasi yang konflik terlebih dahulu.</p><ul><li v-for="c in preview.conflicts" :key="c.slotId">{{ c.date }} {{ time(c.startMinute) }} · {{ c.reserved }} reservasi: {{ c.reason }} <span v-for="b in c.bookings" :key="b.code">{{ b.code }} </span></li></ul></div>
         <p v-else>Tidak ditemukan konflik kapasitas. Periksa slot sebelum menyimpan perubahan.</p>
         <label>Tanggal preview<input v-model="previewDate" type="date" :min="preview.from" :max="preview.to"></label>
         <div class="slot-grid"><span v-for="s in shownSlots" :key="`${s.date}/${s.startMinute}`" class="slot-card">{{ time(s.startMinute) }}–{{ time(s.endMinute) }}<small>Kuota standar {{ s.quota }}</small></span></div>

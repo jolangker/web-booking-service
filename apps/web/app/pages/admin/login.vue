@@ -1,4 +1,5 @@
 <script setup lang="ts">
+useHead({ title: 'Masuk Admin — Booking bengkel' })
 const { authenticate, request } = useAdmin()
 const username = ref(''), password = ref(''), error = ref(''), ready = ref(false), busy = ref(false)
 async function prepare() {
@@ -22,9 +23,9 @@ async function login() {
 
 <template>
   <main class="admin admin-login">
-    <p class="eyebrow">BOOKING BENGKEL · INTERNAL</p>
+    <NuxtLink to="/" class="brand"><span class="brand-mark"><AppIcon name="route" /></span><span>booking<span class="brand-light">bengkel</span><span class="brand-dot">.</span></span></NuxtLink>
     <h1>Masuk sebagai Admin</h1>
-    <p>Kelola layanan, jam operasional, dan kuota kedatangan.</p>
+    <p>Ruang kerja untuk penerimaan, pengerjaan, dan pembayaran servis.</p>
     <p v-if="error" role="alert" class="notice error">{{ error }}</p>
     <button v-if="!ready && error" @click="prepare">Coba lagi</button>
     <p v-if="!ready && !error" role="status">Menyiapkan login…</p>
@@ -33,6 +34,6 @@ async function login() {
       <label>Password<input v-model="password" name="password" type="password" autocomplete="current-password" required></label>
       <button class="primary" :disabled="busy">{{ busy ? 'Memeriksa…' : 'Masuk' }}</button>
     </form>
-    <p class="muted">Akun disiapkan oleh operator melalui prosedur bootstrap Admin.</p>
+    <p class="internal-note">Gunakan akun individual yang disiapkan operator. <NuxtLink to="/">Kembali ke situs pelanggan</NuxtLink></p>
   </main>
 </template>

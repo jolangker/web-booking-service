@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = defineProps<{ base: string, verifyPath: string, csrf: string, contact?: boolean }>()
+const props = defineProps<{ base: string, verifyPath: string, csrf: string, contact?: boolean, requestLabel?: string }>()
 const emit = defineEmits<{ verified: [] }>()
 const phone = ref(''), code = ref(''), error = ref(''), busy = ref(false)
 const challenge = ref<{ id: string, expiresAt: string, resendAt: string, status: string }>()
@@ -50,11 +50,11 @@ async function verify() {
 </script>
 
 <template>
-  <div>
+  <div class="otp-form">
     <p v-if="contact" class="muted">Nomor baru harus menerima OTP. Setelah berhasil, semua sesi pelanggan dicabut; masuk kembali dengan nomor baru.</p>
     <form @submit.prevent="requestCode">
       <label>Nomor WhatsApp{{ contact ? ' baru' : '' }}<input v-model="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="08… atau +628…" required maxlength="30" :disabled="busy || cooldown > 0"></label>
-      <button type="submit" :disabled="busy || cooldown > 0">{{ cooldown > 0 ? `Kirim ulang dalam ${cooldown} detik` : challenge ? 'Kirim kode baru' : 'Kirim OTP WhatsApp' }}</button>
+      <button type="submit" class="primary" :disabled="busy || cooldown > 0">{{ busy ? 'Memproses…' : cooldown > 0 ? `Kirim ulang dalam ${cooldown} detik` : challenge ? 'Kirim kode baru' : requestLabel || 'Kirim OTP WhatsApp' }}</button>
     </form>
     <template v-if="challenge">
       <p role="status">{{ remaining === 0 ? descriptions.expired : descriptions[challenge.status] }} <span v-if="remaining > 0">Berlaku {{ remaining }} detik lagi.</span></p>

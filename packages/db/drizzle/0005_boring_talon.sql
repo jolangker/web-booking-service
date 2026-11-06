@@ -1,0 +1,2 @@
+DROP INDEX "app"."booking_vehicle_slot_active";--> statement-breakpoint
+CREATE UNIQUE INDEX "booking_vehicle_slot_active" ON "app"."bookings" USING btree ("vehicle_id","scheduled_at") WHERE "app"."bookings"."status" <> 'cancelled';

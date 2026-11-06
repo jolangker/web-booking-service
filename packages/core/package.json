@@ -10,14 +10,19 @@
     "dist"
   ],
   "scripts": {
+    "admin:bootstrap": "node --env-file-if-exists=../../.env dist/admin-cli.js bootstrap",
+    "admin:reset": "node --env-file-if-exists=../../.env dist/admin-cli.js reset",
     "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && node --test test/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@booking/db": "workspace:*",
-    "bcryptjs": "3.0.3"
+    "bcryptjs": "3.0.3",
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
-    "@types/pg": "8.23.1"
+    "@types/pg": "8.23.1",
+    "@types/qrcode": "1.5.6"
   }
 }
