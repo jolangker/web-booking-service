@@ -43,18 +43,19 @@ onBeforeUnmount(() => { disposed = true; stop(); controller?.abort(); document.r
 
 <template>
   <main class="admin customer-account">
-    <p class="eyebrow">BOOKING BENGKEL</p><h1>Status booking</h1>
-    <p class="muted">Diperbarui setiap 10 detik saat halaman aktif. Simpan tautan ini untuk memantau kunjungan Anda.</p>
+    <header class="page-heading"><h1>Ikuti kunjungan Anda</h1><p>Dari kendaraan diterima sampai transaksi selesai.</p></header>
+    <p class="page-note">Diperbarui setiap 10 detik saat halaman aktif. Simpan tautan ini untuk memantau kunjungan Anda.</p>
     <p v-if="error" class="notice error" role="alert">{{ error }}</p>
     <p v-if="busy && !data" role="status">Memuat status…</p>
     <section v-if="data" class="panel" aria-live="polite">
-      <h2>{{ bookingStatus(data.status, data.reservationStatus) }}</h2><p>{{ data.code }} · Kendaraan {{ data.maskedPlate }}</p>
+      <div class="tracking-heading"><AppIcon name="wrench" /><div><h2>{{ bookingStatus(data.status, data.reservationStatus) }}</h2><p>{{ data.code }} · Kendaraan {{ data.maskedPlate }}</p></div></div>
+      <VisitProgress :status="data.status" :reservation-status="data.reservationStatus" />
       <p>{{ data.reservationStatus === 'cancelled' ? 'Jadwal yang dibatalkan' : 'Jadwal kedatangan' }}: {{ bookingTime(data.scheduledAt) }}</p>
       <p v-if="data.status === 'completed'" class="notice">Pengerjaan selesai. Pembayaran belum lunas; estimasi dikirim melalui WhatsApp.</p>
       <p class="muted" data-tracking-timestamps>Status terakhir: {{ bookingTime(data.updatedAt) }}<br>Terakhir diperiksa: {{ bookingTime(data.fetchedAt) }}<br>Tautan berlaku sampai {{ bookingTime(data.expiresAt) }}</p>
-      <ol><li v-for="(h, i) in data.history" :key="i"><strong>{{ h.action === 'rescheduled' ? 'Jadwal diubah' : bookingStatus(h.status, h.reservationStatus) }}</strong><p>{{ bookingTime(h.occurredAt) }}</p><p v-if="h.action === 'rescheduled'">Jadwal: {{ bookingTime(h.scheduledAt) }}</p></li></ol>
+      <h3 class="section-actions">Perjalanan kunjungan</h3><ol class="customer-timeline"><li v-for="(h, i) in data.history" :key="i"><strong>{{ h.action === 'rescheduled' ? 'Jadwal diubah' : bookingStatus(h.status, h.reservationStatus) }}</strong><p>{{ bookingTime(h.occurredAt) }}</p><p v-if="h.action === 'rescheduled'">Jadwal: {{ bookingTime(h.scheduledAt) }}</p></li></ol>
       <p v-if="data.terminal" class="muted">Status akhir tercatat. Pembaruan otomatis dihentikan.</p>
     </section>
-    <button :disabled="busy" class="section-actions" @click="load">Perbarui sekarang</button>
+    <button :disabled="busy" class="section-actions" @click="load"><AppIcon name="history" /> Perbarui sekarang</button>
   </main>
 </template>

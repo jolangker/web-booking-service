@@ -1,11 +1,16 @@
-<template>
-  <NuxtPage />
-</template>
+<script setup lang="ts">
+const route = useRoute()
+const customer = computed(() => !route.path.startsWith('/admin') && !route.path.startsWith('/dev/'))
+</script>
 
-<style>
-body { margin: 0; font-family: system-ui, sans-serif; color: #172b35; background: #f5f7f8; }
-main { max-width: 48rem; margin: 4rem auto; padding: 1.5rem; }
-button, input { font: inherit; padding: .65rem; }
-button { cursor: pointer; }
-input { max-width: 100%; box-sizing: border-box; }
-</style>
+<template>
+  <div :class="customer ? 'site-shell' : 'internal-shell'">
+    <a class="skip-link" href="#main-content">Langsung ke konten</a>
+    <CustomerHeader v-if="customer" />
+    <div id="main-content" tabindex="-1" class="page-content">
+      <NuxtPage />
+    </div>
+    <CustomerFooter v-if="customer" />
+    <NuxtRouteAnnouncer />
+  </div>
+</template>

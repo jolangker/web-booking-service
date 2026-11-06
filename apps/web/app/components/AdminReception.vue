@@ -34,7 +34,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 <template>
   <section class="reception">
-    <div class="admin-header"><h2>Penerimaan kendaraan</h2><div class="actions"><button :disabled="busy || loading" data-refresh-reception @click="load">Perbarui antrean</button><button :disabled="busy || Boolean(pending)" data-open-walk-in @click="walkIn = !walkIn">{{ walkIn ? 'Tutup walk-in' : 'Daftarkan walk-in' }}</button></div></div>
+    <div class="admin-header"><h2>Penerimaan kendaraan</h2><div class="actions"><button :disabled="busy || loading" data-refresh-reception @click="load">Perbarui antrean</button><button class="primary" :disabled="busy || Boolean(pending)" data-open-walk-in @click="walkIn = !walkIn">{{ walkIn ? 'Tutup walk-in' : 'Daftarkan walk-in' }}</button></div></div>
     <p class="muted">Tanggal bengkel {{ dashboard?.date }} · WIB. Check-in pada hari jadwal selama jam operasional; datang lebih awal/terlambat pada hari yang sama boleh. No-show tidak melepas kuota otomatis.</p>
     <p v-if="notice" class="notice success" role="status" data-reception-success>{{ notice }}</p>
     <p v-if="loadError || error" class="notice error" role="alert">{{ loadError || error }}</p>
@@ -42,7 +42,7 @@ onBeforeUnmount(() => clearInterval(timer))
     <div v-if="dashboard" class="reception-summary" aria-label="Ringkasan hari ini">
       <p><strong>{{ dashboard.summary.vehicles }}</strong> kendaraan</p><p><strong>{{ dashboard.summary.waiting }}</strong> menunggu</p><p><strong>{{ dashboard.summary.received }}</strong> diterima</p><p><strong>{{ dashboard.summary.remaining }}</strong> sisa kuota slot belum berakhir</p>
     </div>
-    <form class="panel" @submit.prevent="selected = undefined; load()"><label>Kode booking, plat, atau hasil scan QR<input v-model="query" name="receptionLookup" maxlength="40" autocomplete="off" placeholder="BK-YYYYMMDD-NNN / B1234ABC"></label><p class="muted">Scan dengan pembaca QR mode keyboard, atau tempel hasil scan dari ponsel. QR harus berisi kode booking saja. Pilih booking yang sesuai jika plat memiliki beberapa hasil.</p><div class="actions"><button type="submit" :disabled="busy || loading" data-search-reception>Cari booking / QR</button><button type="button" :disabled="busy || loading" @click="query = ''; selected = undefined; load()">Antrean hari ini</button></div></form>
+    <form class="panel lookup-form" @submit.prevent="selected = undefined; load()"><div class="lookup-controls"><label>Kode booking, plat, atau hasil scan QR<input v-model="query" name="receptionLookup" maxlength="40" autocomplete="off" placeholder="Cari kode booking atau plat kendaraan"></label><button type="submit" :disabled="busy || loading" data-search-reception><AppIcon name="search" /> Cari booking</button><button type="button" :disabled="busy || loading" @click="query = ''; selected = undefined; load()">Antrean hari ini</button></div><p class="muted">Gunakan pembaca QR mode keyboard atau tempel kode dari ponsel. Pilih booking yang sesuai jika plat memiliki beberapa hasil.</p></form>
     <p v-if="loading" role="status">Memuat antrean…</p>
     <div v-if="dashboard" class="admin-columns section-actions">
       <section class="panel"><h3>{{ dashboard.searched ? 'Hasil pencarian — pilih konteks booking' : 'Antrean aktif hari ini' }}</h3>
@@ -50,14 +50,14 @@ onBeforeUnmount(() => clearInterval(timer))
         <ul class="customer-list"><li v-for="b in dashboard.bookings" :key="b.id"><button :data-booking-id="b.id" :aria-current="selected?.id === b.id ? 'true' : undefined" :disabled="busy || Boolean(pending)" @click="choose(b)"><strong>{{ b.vehicle.plate }} · {{ b.code }}</strong><br>{{ b.customerName }}<br><small>{{ bookingTime(b.scheduledAt) }}<br>{{ bookingStatus(b.status, b.reservationStatus) }}</small></button></li></ul>
       </section>
       <section v-if="selected" class="panel reception-check-in">
-        <h3>{{ selected.code }} · {{ selected.vehicle.plate }}</h3><p>{{ selected.customerName }} · {{ selected.phone }}</p><p>{{ selected.vehicle.brand }} {{ selected.vehicle.model }} · {{ selected.vehicle.year }}</p><p>{{ bookingTime(selected.scheduledAt) }}</p><p class="booking-complaint">Keluhan: {{ selected.complaint }}</p><ul><li v-for="s in selected.services" :key="s.name">{{ s.name }} · {{ bookingMoney(s.price) }}</li></ul>
+        <div class="panel-header"><h3>{{ selected.code }}</h3><span class="badge inactive">{{ selected.vehicle.plate }}</span></div><VisitProgress :status="selected.status" :reservation-status="selected.reservationStatus" /><div class="admin-context"><p><strong>{{ selected.customerName }}</strong> · {{ selected.phone }}</p><p>{{ selected.vehicle.brand }} {{ selected.vehicle.model }} · {{ selected.vehicle.year }}</p><p>{{ bookingTime(selected.scheduledAt) }}</p></div><p class="booking-complaint">Keluhan: {{ selected.complaint }}</p><ul><li v-for="s in selected.services" :key="s.name">{{ s.name }} · {{ bookingMoney(s.price) }}</li></ul>
         <template v-if="selected.workOrderId"><h4>Kendaraan Diterima</h4><p>{{ selected.receivedAt ? bookingTime(selected.receivedAt) : '' }}</p><p>Odometer: {{ selected.odometer }} km</p><p class="booking-complaint">{{ selected.initialCondition }}</p><p>Pit: {{ selected.pit || 'Belum ditentukan' }} · Pelaksana: {{ selected.assignee || 'Belum ditentukan' }}</p></template>
         <form v-else-if="selected.status === 'confirmed' && selected.reservationStatus === 'active' && new Date(selected.scheduledAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) === dashboard.date" @submit.prevent="checkIn">
           <fieldset :disabled="busy || Boolean(pending)"><ReceptionFields v-model="physical" /><button class="primary section-actions" type="submit" data-submit-check-in>{{ busy ? 'Menyimpan…' : 'Terima kendaraan & buat WO' }}</button></fieldset>
         </form>
         <p v-else role="status">Booking ini tidak dapat diterima. Booking harus aktif pada tanggal hari ini; kunjungan hari lain memakai walk-in.</p>
       </section>
-      <p v-else class="muted">Pilih booking untuk memeriksa identitas, layanan, dan kondisi kendaraan.</p>
+      <div v-else class="selection-placeholder"><AppIcon name="clipboard-list" /><h3>Periksa kunjungan sebelum diterima</h3><p>Pilih booking dari antrean untuk melihat identitas, layanan, dan kondisi kendaraan.</p></div>
     </div>
     <AdminWalkIn v-if="walkIn && dashboard" :slots="dashboard.slots" class="section-actions" @received="received" />
     <section v-if="dashboard?.carryover.length" class="panel section-actions"><h3>Kendaraan lintas hari</h3><ul><li v-for="b in dashboard.carryover" :key="b.id"><button @click="query = b.code; load()">{{ b.code }} · {{ b.vehicle.plate }}</button> · {{ bookingStatus(b.status) }} · {{ bookingTime(b.scheduledAt) }}</li></ul><p class="muted">Sudah diterima pada kunjungan sebelumnya. Tidak memesan kuota hari ini lagi.</p></section>

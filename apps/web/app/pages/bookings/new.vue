@@ -1,4 +1,5 @@
 <script setup lang="ts">
+useHead({ title: 'Jadwalkan servis — Booking bengkel' })
 interface Slot { id: string, startMinute: number, endMinute: number, remaining: number }
 const request = useRequestFetch()
 const { data: setup, error: setupError, refresh } = await useAsyncData('booking-setup', async () => {
@@ -52,15 +53,17 @@ async function submit() {
 
 <template>
   <main class="admin customer-account">
-    <header class="admin-header"><div><p class="eyebrow">BOOKING BENGKEL</p><h1>{{ result ? 'Booking tersimpan' : 'Jadwalkan servis' }}</h1></div><NuxtLink to="/bookings">Booking saya</NuxtLink></header>
+    <NuxtLink to="/bookings" class="back-link"><AppIcon name="arrow-right" />Booking saya</NuxtLink>
+    <header class="page-heading"><h1>{{ result ? 'Booking tersimpan' : 'Jadwalkan servis' }}</h1><p>{{ result ? 'Simpan kode booking dan tunjukkan saat tiba di bengkel.' : 'Pilih kebutuhan kendaraan dan waktu kedatangan yang sesuai.' }}</p></header>
     <p v-if="setupError" role="alert" class="notice error">{{ adminError(setupError) }} <button @click="refresh()">Coba lagi</button></p>
     <BookingResult v-if="result" :booking="result" />
     <template v-else-if="setup">
-      <p v-if="!canBook" class="panel">Lengkapi nama dan kendaraan di <NuxtLink to="/account">akun Anda</NuxtLink> sebelum booking. Jika layanan belum tersedia, hubungi bengkel.</p>
+      <div v-if="!canBook" class="empty-state"><AppIcon name="car" /><h2>Siapkan data untuk kunjungan Anda</h2><p>Lengkapi nama dan kendaraan sebelum booking. Jika layanan belum tersedia, hubungi bengkel.</p><NuxtLink to="/account" class="button">Lengkapi akun & kendaraan<AppIcon name="arrow-right" /></NuxtLink></div>
       <template v-else>
-        <p class="muted" aria-live="polite">Langkah {{ step }} dari 4 · {{ ['Layanan', 'Kendaraan & keluhan', 'Jadwal kedatangan', 'Tinjau booking'][step - 1] }}</p>
+        <ol class="booking-stepper" aria-label="Langkah booking"><li v-for="(label, index) in ['Layanan', 'Kendaraan', 'Jadwal', 'Tinjau']" :key="label" :class="{ current: step === index + 1, complete: step > index + 1 }" :aria-current="step === index + 1 ? 'step' : undefined"><span class="step-index">{{ index + 1 }}</span>{{ label }}</li></ol>
+        <p class="sr-only" aria-live="polite">Langkah {{ step }} dari 4</p>
         <p v-if="error" role="alert" class="notice error">{{ error }}</p>
-        <form class="panel" @submit.prevent="step === 4 ? submit() : next()">
+        <div class="booking-workspace"><form class="panel" @submit.prevent="step === 4 ? submit() : next()">
           <fieldset :disabled="busy">
             <template v-if="step === 1">
               <legend>Pilih layanan</legend>
@@ -94,6 +97,8 @@ async function submit() {
             <div class="actions section-actions"><button v-if="step > 1" type="button" @click="step--; error = ''">Kembali</button><button class="primary" :disabled="busy || (step === 3 && (slotsBusy || !slotId))">{{ busy ? 'Menyimpan…' : step === 4 ? 'Konfirmasi booking' : 'Lanjut' }}</button></div>
           </fieldset>
         </form>
+        <aside class="booking-estimate" aria-labelledby="estimate-title"><h2 id="estimate-title">Rencana kunjungan</h2><p class="estimate-total">{{ bookingMoney(total) }}</p><p>Estimasi jasa yang dipilih</p><ul v-if="services.length"><li v-for="service in services" :key="service.id"><span>{{ service.name }}</span><strong>{{ bookingMoney(service.price) }}</strong></li></ul><p v-else>Pilih setidaknya satu layanan untuk memulai.</p><p v-if="vehicle"><strong>{{ vehicle.plate }}</strong><br>{{ vehicle.brand }} {{ vehicle.model }}</p><p v-if="slot">{{ date }}<br>{{ slotTime(slot.startMinute) }}–{{ slotTime(slot.endMinute) }} WIB</p><p class="estimate-note"><AppIcon name="shield-check" /><span>Pembayaran di bengkel. Biaya akhir mengikuti pekerjaan aktual.</span></p></aside>
+        </div>
       </template>
     </template>
   </main>

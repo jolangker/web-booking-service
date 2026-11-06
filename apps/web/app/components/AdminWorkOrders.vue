@@ -64,11 +64,11 @@ onMounted(() => {
       <section class="panel"><h3>WO aktif, termasuk lintas hari</h3><p v-if="!orders.length">Belum ada WO.</p><ul class="customer-list"><li v-for="w in orders" :key="w.id"><button :data-wo-booking="w.id" :disabled="busy || Boolean(pending)" @click="open(w.id)"><strong>{{ w.code }} · {{ w.vehicle.plate }}</strong><br>{{ bookingStatus(w.status) }}<br>{{ w.pit || 'Pit belum diisi' }} · {{ w.assignee || 'Pelaksana belum diisi' }}</button></li></ul></section>
       <section v-if="detail && fields" class="panel">
         <div class="admin-header"><h3>{{ fields.code }} · {{ fields.vehicle.plate }}</h3><button :disabled="busy || Boolean(pending)" data-reload-wo @click="open(fields.bookingId)">Muat ulang WO</button></div>
-        <p>{{ fields.customerName }} · {{ fields.phone }}</p><p class="booking-complaint">Keluhan: {{ fields.complaint }}</p><p>Versi {{ fields.version }} · {{ bookingStatus(fields.status) }} · Pembayaran belum lunas</p>
+        <VisitProgress :status="fields.status" /><div class="admin-context"><p><strong>{{ fields.customerName }}</strong> · {{ fields.phone }}</p><p class="booking-complaint">Keluhan: {{ fields.complaint }}</p><p>Versi {{ fields.version }} · {{ bookingStatus(fields.status) }} · Pembayaran belum lunas</p></div>
         <form ref="form" @submit.prevent="mutate()">
           <fieldset :disabled="busy || Boolean(pending)">
             <div class="form-row"><label>Odometer (km)<input v-model.number="fields.odometer" name="woOdometer" type="number" min="0" max="9999999" step="1" required></label><label>Pit<input v-model="fields.pit" name="woPit" maxlength="60"></label><label>Pelaksana<input v-model="fields.assignee" name="woAssignee" maxlength="100"></label></div>
-            <label class="section-actions">Kondisi awal<textarea v-model="fields.initialCondition" maxlength="2000" required /></label>
+            <h4 class="wo-section-heading">Pemeriksaan & pengerjaan</h4><label class="section-actions">Kondisi awal<textarea v-model="fields.initialCondition" maxlength="2000" required /></label>
             <label>Diagnosa<textarea v-model="fields.diagnosis" name="woDiagnosis" maxlength="2000" /></label><label>Inspeksi<textarea v-model="fields.inspection" name="woInspection" maxlength="2000" /></label><label>Catatan / hasil pekerjaan<textarea v-model="fields.notes" name="woNotes" maxlength="4000" /></label>
             <p class="muted">Saat mulai: pit, pelaksana, diagnosa dan inspeksi wajib. Saat selesai: catatan hasil dan minimal satu jasa wajib.</p>
             <DraftCostEditor v-model="lines" :services="services" />
@@ -81,7 +81,7 @@ onMounted(() => {
         </form>
         <section class="section-actions"><h4>Timeline status</h4><ol><li v-for="h in detail.history" :key="h.version">{{ bookingStatus(h.status) }} · {{ bookingTime(h.occurredAt) }}<p v-if="h.estimate">Estimasi saat selesai {{ bookingMoney(h.estimate.total) }} · belum lunas</p></li></ol></section>
         <section class="section-actions"><h4>Audit perubahan WO</h4><p v-if="!detail.changes.length">Belum ada koreksi sejak penerimaan.</p><details v-for="c in detail.changes" :key="c.version"><summary>v{{ c.version }} · {{ c.action }} · {{ bookingTime(c.occurredAt) }} · {{ c.reason }}</summary><p>Aktor: {{ c.actorId }}</p><pre class="audit-json">{{ JSON.stringify({ sebelum: c.before, sesudah: c.after }, null, 2) }}</pre></details></section>
-      </section><p v-else class="muted">Pilih WO untuk mengisi pengerjaan dan draft biaya.</p>
+      </section><div v-else class="selection-placeholder"><AppIcon name="wrench" /><h3>Pilih pekerjaan yang akan dilanjutkan</h3><p>Buka WO untuk mencatat pemeriksaan, penugasan, progres, dan rincian biaya.</p></div>
     </div>
   </section>
 </template>

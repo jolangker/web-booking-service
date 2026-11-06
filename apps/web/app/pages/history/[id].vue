@@ -12,7 +12,7 @@ onMounted(() => load())
 
 <template>
   <main class="admin customer-account">
-    <p><NuxtLink to="/history">Semua kendaraan</NuxtLink></p><h1>Riwayat {{ result?.vehicle.plate }}</h1>
+    <NuxtLink to="/history" class="back-link"><AppIcon name="arrow-right" />Semua kendaraan</NuxtLink><header class="page-heading"><h1>Riwayat {{ result?.vehicle.plate }}</h1><p v-if="result">{{ result.vehicle.brand }} {{ result.vehicle.model }} · {{ result.vehicle.year }}</p></header>
     <p v-if="loading" role="status">Memuat riwayat…</p><p v-if="error" role="alert" class="notice error">{{ error }}</p><button v-if="error" @click="load(page)">Coba lagi</button>
     <template v-if="result">
       <p v-if="!result.visits.length && !loading">Belum ada kunjungan lunas untuk kendaraan ini.</p>
@@ -20,7 +20,7 @@ onMounted(() => load())
         <h2><NuxtLink :to="`/invoices/${v.invoiceId}`" :data-history-invoice="v.invoiceId">{{ bookingTime(v.paidAt) }}</NuxtLink></h2>
         <p>{{ v.vehicle.plate }} · {{ v.odometer }} km · {{ v.number }}</p>
         <ul><li v-for="(line, index) in v.lines" :key="index">{{ line.description }} × {{ line.quantity }}</li></ul>
-        <p>LUNAS · {{ bookingMoney(v.total) }}</p><NuxtLink :to="`/invoices/${v.invoiceId}`">Detail pekerjaan & invoice</NuxtLink>
+        <div class="booking-card-actions"><span class="badge">LUNAS · {{ bookingMoney(v.total) }}</span><NuxtLink :to="`/invoices/${v.invoiceId}`" class="text-link">Detail pekerjaan & invoice<AppIcon name="arrow-right" /></NuxtLink></div>
       </li></ol>
       <div class="actions"><button v-if="page > 1" :disabled="loading" @click="load(page - 1)">Lebih baru</button><span>Halaman {{ page }}</span><button v-if="result.hasMore" :disabled="loading" @click="load(page + 1)">Lebih lama</button></div>
     </template>

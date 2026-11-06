@@ -86,9 +86,9 @@ onBeforeUnmount(() => clearInterval(polling))
       <section class="panel"><h3>Siap dibayar & transaksi terakhir</h3><p v-if="!orders.length">Belum ada servis selesai.</p><ul class="customer-list"><li v-for="w in orders" :key="w.id"><button :data-cashier-booking="w.id" :disabled="busy || Boolean(pending)" @click="open(w.id)"><strong>{{ w.code }} · {{ w.vehicle.plate }}</strong><br>{{ w.customerName }}<br>{{ w.status === 'collected' ? `LUNAS · ${w.number}` : 'Selesai dikerjakan · belum lunas' }}</button></li></ul></section>
       <section v-if="detail" class="panel">
         <div class="admin-header"><h3>{{ detail.workOrder.code }} · {{ detail.workOrder.vehicle.plate }}</h3><button data-reload-cashier :disabled="busy || Boolean(pending)" @click="open(detail.workOrder.bookingId)">Muat ulang rincian</button></div>
-        <p>{{ detail.workOrder.customerName }} · {{ bookingStatus(detail.workOrder.status) }}</p>
+        <VisitProgress :status="detail.workOrder.status" /><div class="admin-context"><p><strong>{{ detail.workOrder.customerName }}</strong> · {{ bookingStatus(detail.workOrder.status) }}</p></div>
         <section v-if="payment" data-paid-invoice>
-          <h3>LUNAS · {{ payment.number }}</h3><p>Total server: <strong>{{ bookingMoney(payment.total) }}</strong></p><p>Diterima {{ bookingMoney(payment.received) }} · Kembalian {{ bookingMoney(payment.change) }}</p><p>{{ bookingTime(payment.paidAt) }} · {{ payment.method }} {{ payment.reference }}</p>
+          <div class="paid-banner"><h3>LUNAS · {{ payment.number }}</h3><div class="money-summary"><span>Total pembayaran</span><strong>{{ bookingMoney(payment.total) }}</strong></div><p>Diterima {{ bookingMoney(payment.received) }} · Kembalian {{ bookingMoney(payment.change) }}</p><p>{{ bookingTime(payment.paidAt) }} · {{ payment.method }} {{ payment.reference }}</p></div>
           <h4>Rincian aktual terkunci</h4>
           <ul><li v-for="(line, index) in detail.draft.lines" :key="index">{{ line.kind === 'service' ? 'Jasa' : 'Part' }} · {{ line.description }} · {{ line.quantity }} × {{ bookingMoney(line.unitPrice) }} = {{ bookingMoney(line.quantity * line.unitPrice) }}</li></ul>
           <p>Jasa {{ bookingMoney(detail.draft.serviceSubtotal) }} · Part {{ bookingMoney(detail.draft.partSubtotal) }}</p>
@@ -112,7 +112,7 @@ onBeforeUnmount(() => clearInterval(polling))
             <button data-settle-payment class="primary" type="submit">Validasi pembayaran & terbitkan invoice</button>
           </fieldset>
         </form>
-      </section><p v-else class="muted">Pilih servis selesai untuk finalisasi tagihan atau melihat invoice.</p>
+      </section><div v-else class="selection-placeholder"><AppIcon name="credit-card" /><h3>Finalkan kunjungan di kasir</h3><p>Pilih servis selesai untuk memeriksa rincian tagihan, mencatat pembayaran, atau melihat invoice.</p></div>
     </div>
   </section>
 </template>
