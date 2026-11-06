@@ -10,3 +10,4 @@ dist/
 *.log
 .verification/
 storage/invoices/
+backups/

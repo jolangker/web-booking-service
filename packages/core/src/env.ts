@@ -7,12 +7,14 @@ export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
     if (!value || value.startsWith('REPLACE')) invalid.add(name)
     return value
   }
-  const appEnv = required('APP_ENV')
-  if (!['development', 'staging', 'production'].includes(appEnv)) invalid.add('APP_ENV')
-  const appOrigin = source.APP_ORIGIN ?? (appEnv === 'development' ? 'http://127.0.0.1:3000' : '')
+  const appOrigin = source.APP_ORIGIN ?? 'http://127.0.0.1:3000'
+  let secureCookies = false
+  let localOrigin = false
   try {
     const url = new URL(appOrigin)
-    if (url.origin !== appOrigin || url.username || url.password || (appEnv !== 'development' && url.protocol !== 'https:') || !['http:', 'https:'].includes(url.protocol)) invalid.add('APP_ORIGIN')
+    if (url.origin !== appOrigin || url.username || url.password || !['http:', 'https:'].includes(url.protocol)) invalid.add('APP_ORIGIN')
+    secureCookies = url.protocol === 'https:'
+    localOrigin = !secureCookies && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
   } catch { invalid.add('APP_ORIGIN') }
   const databaseUrl = required('DATABASE_URL')
   try {
@@ -30,18 +32,18 @@ export function readEnvironment(source: NodeJS.ProcessEnv = process.env) {
   const wahaBaseUrl = required('WAHA_BASE_URL')
   try {
     const url = new URL(wahaBaseUrl)
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || (url.pathname !== '/' && url.pathname !== '') || (url.protocol === 'http:' && (appEnv !== 'development' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)))) invalid.add('WAHA_BASE_URL')
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || (url.pathname !== '/' && url.pathname !== '')) invalid.add('WAHA_BASE_URL')
   } catch { invalid.add('WAHA_BASE_URL') }
   const debug = source.DEBUG_RUNTIME ?? 'false'
-  if (!['true', 'false'].includes(debug) || (appEnv !== 'development' && debug === 'true')) invalid.add('DEBUG_RUNTIME')
+  if (!['true', 'false'].includes(debug) || (!localOrigin && debug === 'true')) invalid.add('DEBUG_RUNTIME')
   const healthPort = Number(source.WORKER_HEALTH_PORT ?? 3002)
   if (!Number.isInteger(healthPort) || healthPort < 1 || healthPort > 65535) invalid.add('WORKER_HEALTH_PORT')
-  const invoiceStoragePath = source.INVOICE_STORAGE_PATH ?? resolve('storage/invoices')
+  const invoiceStoragePath = source.INVOICE_STORAGE_PATH ?? resolve(source.INIT_CWD ?? '.', 'storage/invoices')
   if (!isAbsolute(invoiceStoragePath)) invalid.add('INVOICE_STORAGE_PATH')
   if (invalid.size) throw new Error(`Invalid environment: ${[...invalid].join(', ')}`)
   return {
-    appEnv, appOrigin, databaseUrl, healthToken, wahaApiKey, wahaBaseUrl, otpSecret, wahaWebhookSecret,
-    debugRuntime: appEnv === 'development' && debug === 'true',
+    appOrigin, secureCookies, databaseUrl, healthToken, wahaApiKey, wahaBaseUrl, otpSecret, wahaWebhookSecret,
+    debugRuntime: debug === 'true',
     workerHealthHost: source.WORKER_HEALTH_HOST ?? '127.0.0.1',
     workerHealthPort: healthPort,
     invoiceStoragePath,

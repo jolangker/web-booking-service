@@ -1,4 +1,4 @@
-import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceDeliveries, invoiceFile, listCashier, listWorkOrders, operationalReport, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, sendInvoice, settlePayment, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
+import { changeCalendar, changeSlotQuota, checkInBooking, customerProfile, deliveryLog, gatewayPairingQr, gatewayStatus, getCalendar, getInvoice, getPayment, getSlots, getWorkOrder, invoiceDeliveries, invoiceFile, listCashier, listWorkOrders, operationalReport, otpStatus, receptionDashboard, receiveWalkIn, requestOtp, retryInvoice, saveCustomer, saveService, saveVehicle, searchCustomers, sendInvoice, settlePayment, startGatewayPairing, tokenHash, updateWorkOrder, verifyOtp } from '@booking/core'
 import { adminBody, adminOperation, sessionCookie } from '../../utils/admin'
 import { environment, runtime } from '../../utils/runtime'
 
@@ -49,6 +49,14 @@ export default defineEventHandler(event => adminOperation(async () => {
     if (contact[2] === 'verify' && !contact[3] && method === 'POST') return verifyOtp(runtime, environment, await adminBody(event), scope)
   }
   if (path === 'gateway' && method === 'GET') return gatewayStatus(environment)
+  if (path === 'gateway/pair' && method === 'POST') { await adminBody(event); return startGatewayPairing(environment) }
+  if (path === 'gateway/qr' && method === 'GET') {
+    const image = await gatewayPairingQr(environment)
+    setHeader(event, 'Content-Type', 'image/png')
+    setHeader(event, 'Cache-Control', 'private, no-store, max-age=0')
+    setHeader(event, 'Content-Length', image.length)
+    return send(event, image)
+  }
   if (path === 'deliveries' && method === 'GET') return deliveryLog(runtime)
   if (path === 'services' && method === 'GET') return { services: (await runtime.pool.query('SELECT id,name,price,duration_minutes AS "durationMinutes",active,version FROM app.services ORDER BY created_at,id')).rows }
   if (path === 'services' && method === 'POST') { setResponseStatus(event, 201); return saveService(runtime, await adminBody(event)) }

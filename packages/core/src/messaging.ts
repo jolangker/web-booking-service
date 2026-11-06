@@ -30,9 +30,43 @@ export async function gatewayStatus(env: Environment) {
     const response = await gatewayFetch(env, '/api/sessions/default')
     if (!response.ok) return { status: 'UNAVAILABLE', checkedAt: new Date().toISOString() }
     const data = object(await response.json())
-    const status = typeof data.status === 'string' && ['WORKING', 'STOPPED', 'STARTING', 'SCAN_QR_CODE', 'FAILED'].includes(data.status) ? data.status : 'UNAVAILABLE'
+    const status = typeof data.status === 'string' && ['WORKING', 'STOPPED', 'STARTING', 'SCAN_QR_CODE', 'FAILED', 'PASSKEY_REQUIRED', 'PASSKEY_CONFIRMATION_REQUIRED'].includes(data.status) ? data.status : 'UNAVAILABLE'
     return { status, checkedAt: new Date().toISOString() }
   } catch { return { status: 'UNAVAILABLE', checkedAt: new Date().toISOString() } }
+}
+
+export async function startGatewayPairing(env: Environment) {
+  try {
+    const existing = await gatewayFetch(env, '/api/sessions/default')
+    let path: string | undefined, body: object = {}
+    if (existing.status === 404) { path = '/api/sessions'; body = { name: 'default', start: true } }
+    else {
+      if (!existing.ok) throw new Error('Gateway unavailable')
+      const session = object(await existing.json())
+      if (session.status === 'STOPPED') path = '/api/sessions/default/start'
+      if (session.status === 'FAILED') path = '/api/sessions/default/restart'
+      // Reading a QR must never restart an active or already connected session.
+    }
+    if (path && !(await gatewayFetch(env, path, body)).ok) throw new Error('Pairing unavailable')
+    return gatewayStatus(env)
+  } catch { throw new DomainError(503, 'WhatsApp belum dapat dihubungkan. Periksa gateway lalu coba lagi.') }
+}
+
+export async function gatewayPairingQr(env: Environment) {
+  try {
+    const response = await fetch(new URL('/api/default/auth/qr?format=image', env.wahaBaseUrl), {
+      headers: { 'X-Api-Key': env.wahaApiKey, Accept: 'image/png' },
+      redirect: 'error', signal: AbortSignal.timeout(8000),
+    })
+    if ([404, 409, 422].includes(response.status)) throw new DomainError(409, 'QR belum tersedia atau sudah berubah. Perbarui status WhatsApp.')
+    if (!response.ok || !response.headers.get('content-type')?.toLowerCase().startsWith('image/png')) throw new Error('QR unavailable')
+    const data = Buffer.from(await response.arrayBuffer())
+    if (data.length > 1048576 || !data.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) throw new Error('Invalid QR image')
+    return data
+  } catch (error) {
+    if (error instanceof DomainError) throw error
+    throw new DomainError(503, 'QR WhatsApp belum dapat dibaca. Coba lagi sebentar.')
+  }
 }
 
 // Called periodically by the worker even when the queue is empty or the gateway is down.

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev --host 127.0.0.1 --port 3000",
+    "dev": "nuxt dev --dotenv ../../.env --host 127.0.0.1 --port 3000",
     "build": "nuxt build",
     "typecheck": "nuxt typecheck",
     "postinstall": "nuxt prepare"
